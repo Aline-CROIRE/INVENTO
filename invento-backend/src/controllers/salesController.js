@@ -1,89 +1,130 @@
+const Sale = require('../models/Sale');
 const Product = require('../models/Product');
 const Batch = require('../models/Batch');
-const Sale = require('../models/Sale');
-const WasteEvent = require('../models/WasteEvent');
 const InventoryTransaction = require('../models/InventoryTransaction');
+const mongoose = require('mongoose');
 
 exports.recordSale = async (req, res) => {
-  const { items } = req.body; // Array of { productId, quantity }
+  const { items, packagingWaste } = req.body; 
   const shopId = req.user.shopId;
+  const soldBy = req.user._id;
+
+  // Use a session for atomic integrity (Ensures stock & sale are updated together or not at all)
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
   try {
-    let totalRevenue = 0;
-    let totalCost = 0;
-    const saleItems = [];
+    let grandTotalRevenue = 0;
+    let grandTotalCost = 0;
+    let grandTotalDiscountLoss = 0;
+    const processedItems = [];
 
     for (const item of items) {
-      let remainingToSell = item.quantity;
+      const { productId, quantity, discount = 0 } = item;
       
-      // Find batches for this product, sorted by Expiry (First to expire first)
-      const batches = await Batch.find({ 
-        productId: item.productId, 
-        quantity: { $gt: 0 } 
-      }).sort({ expiryDate: 1 });
+      const product = await Product.findById(productId).session(session);
+      if (!product || product.totalStock < quantity) {
+        throw new Error(`Insufficient stock for product: ${product?.name || productId}`);
+      }
 
-      for (const batch of batches) {
-        if (remainingToSell <= 0) break;
+      // 1. Fetch available batches (Not expired, sorted by Expiry ASC)
+      const availableBatches = await Batch.find({
+        productId,
+        shopId,
+        quantity: { $gt: 0 },
+        expiryDate: { $gt: new Date() }
+      }).sort({ expiryDate: 1 }).session(session);
 
-        const sellFromBatch = Math.min(batch.quantity, remainingToSell);
-        
-        // Update Batch
-        batch.quantity -= sellFromBatch;
-        await batch.save();
+      let remainingToDeduct = quantity;
+      let itemTotalCost = 0;
+      const itemBatchesUsed = [];
 
-        // Update Product total
-        await Product.findByIdAndUpdate(item.productId, { $inc: { totalStock: -sellFromBatch } });
+      // 2. FIFO + Expiry Deduction Logic
+      for (const batch of availableBatches) {
+        if (remainingToDeduct <= 0) break;
 
-        // Calculate financials
-        const itemRevenue = sellFromBatch * batch.sellingPrice;
-        const itemCost = sellFromBatch * batch.purchasePrice;
-        
-        totalRevenue += itemRevenue;
-        totalCost += itemCost;
+        const deductQty = Math.min(batch.quantity, remainingToDeduct);
+        batch.quantity -= deductQty;
+        await batch.save({ session });
 
-        saleItems.push({
-          productId: item.productId,
+        itemTotalCost += (deductQty * batch.purchasePrice);
+        itemBatchesUsed.push({
           batchId: batch._id,
-          quantity: sellFromBatch,
-          priceAtSale: batch.sellingPrice,
-          costAtSale: batch.purchasePrice
+          quantityUsed: deductQty,
+          purchasePrice: batch.purchasePrice
         });
 
-        remainingToSell -= sellFromBatch;
-
-        await InventoryTransaction.create({
-          productId: item.productId, batchId: batch._id, shopId,
-          type: 'SALE', quantity: -sellFromBatch, reason: 'Sale', performedBy: req.user._id
-        });
+        remainingToDeduct -= deductQty;
       }
 
-      if (remainingToSell > 0) {
-        throw new Error(`Insufficient stock for product ${item.productId}`);
-      }
+      if (remainingToDeduct > 0) throw new Error(`Stock logic error for ${product.name}`);
+
+      // 3. Financial Calculations
+      const unitPrice = availableBatches[0].sellingPrice; // Use current batch price
+      const itemRevenue = (unitPrice - discount) * quantity;
+      const itemDiscountLoss = discount * quantity;
+
+      processedItems.push({
+        productId,
+        quantity,
+        priceAtSale: unitPrice,
+        discountAtSale: discount,
+        revenue: itemRevenue,
+        cost: itemTotalCost,
+        discountLoss: itemDiscountLoss,
+        batchesUsed: itemBatchesUsed
+      });
+
+      grandTotalRevenue += itemRevenue;
+      grandTotalCost += itemTotalCost;
+      grandTotalDiscountLoss += itemDiscountLoss;
+
+      // 4. Update Product Total Stock
+      product.totalStock -= quantity;
+      await product.save({ session });
+
+      // 5. Log Transaction
+      await InventoryTransaction.create([{
+        productId, shopId, type: 'SALE', quantity: -quantity,
+        reason: 'Customer Sale', performedBy: soldBy
+      }], { session });
     }
 
-    const sale = await Sale.create({
+    // 6. Final Sale Record
+    const sale = new Sale({
       shopId,
-      items: saleItems,
-      totalAmount: totalRevenue,
-      totalCost: totalCost,
-      netProfit: totalRevenue - totalCost,
-      soldBy: req.user._id
+      soldBy,
+      items: processedItems,
+      packagingWaste: packagingWaste || { plasticUnits: 0, paperUnits: 0 },
+      totalRevenue: grandTotalRevenue,
+      totalCost: grandTotalCost,
+      totalDiscountLoss: grandTotalDiscountLoss,
+      netProfit: grandTotalRevenue - grandTotalCost
     });
 
-    res.status(201).json(sale);
+    await sale.save({ session });
+    await session.commitTransaction();
+    
+    // Populate product names for the receipt
+    const populatedSale = await Sale.findById(sale._id).populate('items.productId', 'name');
+    res.status(201).json(populatedSale);
+
   } catch (error) {
+    await session.abortTransaction();
     res.status(400).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
+// Waste Recording Logic (As requested in prompt)
 exports.recordWaste = async (req, res) => {
   const { productId, batchId, quantity, reason } = req.body;
   const shopId = req.user.shopId;
 
   try {
     const batch = await Batch.findById(batchId);
-    if (batch.quantity < quantity) throw new Error('Not enough stock in batch');
+    if (!batch || batch.quantity < quantity) throw new Error("Invalid batch or quantity");
 
     const lossAmount = quantity * batch.purchasePrice;
 
@@ -92,38 +133,34 @@ exports.recordWaste = async (req, res) => {
 
     await Product.findByIdAndUpdate(productId, { $inc: { totalStock: -quantity } });
 
-    const waste = await WasteEvent.create({
-      shopId, productId, batchId, quantity, reason,
-      lossAmount, recordedBy: req.user._id
-    });
-
+    // Inventory Log
     await InventoryTransaction.create({
-      productId, batchId, shopId,
-      type: 'WASTE', quantity: -quantity, reason: `Waste: ${reason}`, performedBy: req.user._id
+      productId, batchId, shopId, type: 'WASTE', 
+      quantity: -quantity, reason: `Waste: ${reason}`, performedBy: req.user._id
     });
 
-    res.status(201).json(waste);
+    res.status(201).json({ message: "Waste recorded", lossAmount });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
 
+// Financial Report for Sustainability Dashboard
 exports.getProfitReport = async (req, res) => {
   const shopId = req.user.shopId;
   try {
     const sales = await Sale.find({ shopId });
-    const waste = await WasteEvent.find({ shopId });
-
-    const totalRevenue = sales.reduce((acc, curr) => acc + curr.totalAmount, 0);
-    const totalCOGS = sales.reduce((acc, curr) => acc + curr.totalCost, 0);
-    const totalWasteLoss = waste.reduce((acc, curr) => acc + curr.lossAmount, 0);
+    // In production, use MongoDB Aggregation for performance
+    const totalRevenue = sales.reduce((acc, s) => acc + s.totalRevenue, 0);
+    const totalCost = sales.reduce((acc, s) => acc + s.totalCost, 0);
+    const totalDiscountLoss = sales.reduce((acc, s) => acc + s.totalDiscountLoss, 0);
 
     res.json({
       totalRevenue,
-      grossProfit: totalRevenue - totalCOGS,
-      netProfit: totalRevenue - totalCOGS - totalWasteLoss,
-      totalWasteLoss,
-      salesCount: sales.length
+      totalCost,
+      totalDiscountLoss,
+      grossProfit: totalRevenue - totalCost,
+      netProfit: totalRevenue - totalCost // Real Profit
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
