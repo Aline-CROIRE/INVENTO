@@ -2,42 +2,105 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <!-- 1. THEMED ICONS -->
+    <link rel="icon" href="%PUBLIC_URL%/logo.png" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo.png" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="theme-color" content="#04090E" />
+    
+    <!-- 2. ADVANCED SEO -->
+    <title>Invento | Intelligence Inventory System</title>
+    <meta name="description" content="Next-generation tactical inventory management and commercial intelligence platform." />
+    <meta name="author" content="Invento Systems" />
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <!-- 3. PREMIUM FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet" />
+
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- 4. CRITICAL INITIAL LOADING STYLES -->
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #04090E; /* Matches your dashboard background */
+        font-family: 'Inter', sans-serif;
+        overflow: hidden;
+      }
+
+      #loader-wrapper {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: radial-gradient(circle at center, #0D1F2D 0%, #04090E 100%);
+        z-index: 9999;
+      }
+
+      .loader-logo {
+        width: 80px;
+        height: auto;
+        margin-bottom: 20px;
+        filter: drop-shadow(0 0 15px rgba(0, 176, 255, 0.4));
+        animation: pulse 2s infinite ease-in-out;
+      }
+
+      .loader-bar {
+        width: 200px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .loader-progress {
+        position: absolute;
+        height: 100%;
+        width: 40%;
+        background: linear-gradient(90deg, #00E676, #00B0FF);
+        box-shadow: 0 0 10px #00B0FF;
+        animation: slide 1.5s infinite linear;
+      }
+
+      .loader-text {
+        margin-top: 15px;
+        color: #64748b;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.7; }
+      }
+
+      @keyframes slide {
+        from { left: -50%; }
+        to { left: 100%; }
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+    <!-- 5. INITIALIZATION UI (Disappears once React loads) -->
+    <div id="root">
+      <div id="loader-wrapper">
+        <img src="%PUBLIC_URL%/logo.png" alt="Invento" class="loader-logo" />
+        <div class="loader-bar">
+          <div class="loader-progress"></div>
+        </div>
+        <div class="loader-text">Initializing Tactical Link...</div>
+      </div>
+    </div>
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

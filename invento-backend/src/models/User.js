@@ -2,25 +2,53 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  password: { type: String },
-  role: { type: String, enum: ['ADMIN', 'OWNER', 'WORKER'], required: true },
-  shopId: { type: mongoose.Schema.Types.ObjectId, ref: 'Shop' },
-  status: { type: String, enum: ['PENDING', 'ACTIVE'], default: 'PENDING' },
+  name: { 
+    type: String, 
+    trim: true 
+  },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    lowercase: true 
+  },
+  phone: { 
+    type: String, 
+    default: '+250 ' 
+  },
+  password: { 
+    type: String, 
+    select: false // Prevents password from leaking in "find" queries
+  },
+  role: { 
+    type: String, 
+    enum: ['ADMIN', 'OWNER', 'WORKER'], 
+    required: true 
+  },
+  shopId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Shop' 
+  },
+  status: { 
+    type: String, 
+    enum: ['PENDING', 'ACTIVE', 'DEACTIVATED'], 
+    default: 'PENDING' 
+  },
   setupToken: { type: String },
   setupTokenExpires: { type: Date }
 }, { timestamps: true });
 
-// ✅ Correct async pre-save hook
-UserSchema.pre('save', async function() {
-  // 'this' refers to the document
-  if (!this.isModified('password')) return; // only hash if password changed
+// ✅ Hashing logic
+UserSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
+  next();
 });
 
-// Compare password method
-UserSchema.methods.comparePassword = function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+// ✅ Comparison method
+UserSchema.methods.comparePassword = async function(candidatePassword) {
+  // Since password has select: false, we ensure we are comparing against a valid string
+  return await bcrypt.compare(candidatePassword, this.password);
 };
 
 module.exports = mongoose.model('User', UserSchema);

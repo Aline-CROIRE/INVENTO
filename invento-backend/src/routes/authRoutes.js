@@ -1,41 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { login, createUser, setupPassword } = require('../controllers/authController');
+const authController = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 
-/**
- * @openapi
- * /api/auth/login:
- *   post:
- *     tags: [Auth]
- *     summary: User login
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             properties:
- *               email: { type: string }
- *               password: { type: string }
- */
-router.post('/login', login);
+// --- PUBLIC ROUTES ---
+router.post('/login', authController.login);
+router.post('/setup-password', authController.setupPassword);
 
-/**
- * @openapi
- * /api/auth/setup-password:
- *   post:
- *     tags: [Auth]
- *     summary: Set password using email token
- */
-router.post('/setup-password', setupPassword);
+// --- PROTECTED STATUS (Heartbeat for TopBar Pulse) ---
+router.get('/status', protect, authController.checkStatus);
 
-/**
- * @openapi
- * /api/auth/users:
- *   post:
- *     tags: [Auth]
- *     summary: Admin creates Owner or Owner creates Worker
- *     security: [{ bearerAuth: [] }]
- */
-router.post('/users', protect, authorize('ADMIN', 'OWNER'), createUser);
+// --- SETTINGS HUB ROUTES ---
+router.patch('/update-profile', protect, authController.updateProfile);
+router.patch('/update-password', protect, authController.updatePassword);
+
+// --- USER MANAGEMENT ---
+router.get('/users', protect, authorize('ADMIN', 'OWNER'), authController.getUsers);
+router.post('/users', protect, authorize('ADMIN', 'OWNER'), authController.createUser);
+router.patch('/users/:id/status', protect, authorize('ADMIN', 'OWNER'), authController.toggleUserStatus);
+router.delete('/users/:id', protect, authorize('ADMIN', 'OWNER'), authController.deleteUser);
 
 module.exports = router;
