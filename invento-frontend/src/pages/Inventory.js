@@ -2,13 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Search, Plus, Upload, ShieldCheck, Eye, Edit2, Trash2, 
+  Search, Plus, ShieldCheck, Eye, Edit2, Trash2, 
   ChevronLeft, ChevronRight, TrendingUp, RefreshCcw, 
-  Loader, AlertCircle, Database, Download, ArrowUpRight
+  Loader, AlertCircle, Database, Download, Activity, Zap
 } from 'lucide-react';
 import api from '../api/axios';
 
-// Modals
+// Assume Modals are imported from your components folder
 import StockInModal from '../components/Inventory/StockInModal';
 import EditProductModal from '../components/Inventory/EditProductModal';
 import ProductDetailsModal from '../components/Inventory/ProductDetailsModal';
@@ -23,13 +23,11 @@ export default function Inventory() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Modals
   const [isStockInOpen, setIsStockInOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [viewProduct, setViewProduct] = useState(null);
   const [editProduct, setEditProduct] = useState(null);
 
-  // --- 1. DATA ENGINE ---
   const INV_BASELINE = useMemo(() => ({
     products: [
       { _id: "SIM-1", name: "Inyange Milk 500ml", category: "Dairy", sku: "MILK-001", totalStock: 0, minStockLevel: 20, unit: "pcs", velocity: "High", price: 600 },
@@ -60,7 +58,6 @@ export default function Inventory() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // --- 2. FILTERS & METRICS ---
   const filteredProducts = useMemo(() => {
     return (realData.products || []).filter(p => 
       (p.name.toLowerCase().includes(search.toLowerCase()) || p.sku?.toLowerCase().includes(search.toLowerCase())) &&
@@ -72,262 +69,395 @@ export default function Inventory() {
     const list = filteredProducts;
     const outOfStock = list.filter(p => p.totalStock === 0).length;
     let assetValue = realData.metrics?.totalAssetValue || 0;
-    let potentialRev = realData.metrics?.potentialRevenue || 0;
-
     if (!realData.metrics || isDemoMode) {
         assetValue = list.reduce((acc, p) => acc + (p.totalStock * (p.price || 0)), 0);
-        potentialRev = assetValue * 1.35;
     }
-    return { totalAssetValue: assetValue, potentialRevenue: potentialRev, outOfStockCount: outOfStock };
-  }, [realData, filteredProducts, isDemoMode]);
+    return { totalAssetValue: assetValue, outOfStockCount: outOfStock };
+  }, [filteredProducts, realData.metrics, isDemoMode]);
 
   const paginated = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
 
-  const handleDelete = async (id) => {
-    if (isDemoMode) return;
-    if (window.confirm("Delete asset?")) {
-      try { await api.delete(`/inventory/${id}`); fetchData(); } catch (e) { alert("Failed"); }
-    }
-  };
-
   return (
-    <PageWrapper initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      
-      {/* --- MOBILE-OPTIMIZED HEADER --- */}
-      <HeaderSection>
-        <div className="top-row">
-            <div className="brand-stack">
-              <div className="logo-outer"><Database size={20} color="#00B0FF" /></div>
-              <h1>Stock <span>Registry</span></h1>
-            </div>
-            
-            <div className="mode-toggle" onClick={() => setIsDemoMode(!isDemoMode)}>
-                <span className={`dot ${isDemoMode ? 'sim' : 'live'}`} />
-                <span className="label">{isDemoMode ? 'DEMO' : 'LIVE'}</span>
-            </div>
+    <PageLayout>
+      {/* 1. TOP NAVBAR */}
+      <TopNav>
+        <div className="brand">
+          <Database size={28} color="#00D1FF" />
+          <div className="text">
+            <h1>Stock<span>Registry</span></h1>
+            <p>v4.0.2 Stable</p>
+          </div>
         </div>
 
-        <div className="controls-row">
-            <div className="search-box">
-                <Search size={16} />
-                <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <button className="icon-btn secondary" onClick={() => setIsImportOpen(true)}><Download size={18}/></button>
-            {/* Desktop Add Button (Hidden on Mobile) */}
-            <button className="icon-btn primary desktop-only" onClick={() => setIsStockInOpen(true)}>
-               <Plus size={18}/> <span>Add</span>
-            </button>
+        <ModeSwitch $isDemo={isDemoMode} onClick={() => setIsDemoMode(!isDemoMode)}>
+          <div className="slider" />
+          <span className="live"><Zap size={12} /> Live</span>
+          <span className="demo"><Activity size={12} /> Demo</span>
+        </ModeSwitch>
+
+        <div className="actions">
+          <NavBtn onClick={() => setIsImportOpen(true)} title="Export CSV"><Download size={18}/></NavBtn>
+          <PrimaryBtn onClick={() => setIsStockInOpen(true)} className="desktop-only">
+            <Plus size={18} /> New Asset
+          </PrimaryBtn>
         </div>
-      </HeaderSection>
+      </TopNav>
 
-      {/* --- SWIPEABLE METRICS ROW --- */}
-      <MetricScrollContainer>
-        <Card $bg="linear-gradient(135deg, #0D1F2D 0%, #050A0F 100%)" className="main-stat">
-          <div className="label-row"><label>Inventory Value</label><ShieldCheck size={16} color="#00B0FF" /></div>
-          <h2>Rwf {activeMetrics.totalAssetValue.toLocaleString()}</h2>
-          <div className="liquid-bar"><div className="bar-bg"><div className="bar-fill" style={{width: '72%'}} /></div></div>
-        </Card>
+      {/* 2. METRICS PANEL */}
+      <MetricsStrip>
+        <MCard color="#00D1FF">
+          <ShieldCheck size={20} />
+          <div>
+            <label>Current Asset Value</label>
+            <h3>Rwf {activeMetrics.totalAssetValue.toLocaleString()}</h3>
+          </div>
+        </MCard>
+        <MCard color={activeMetrics.outOfStockCount > 0 ? "#FF3B6B" : "#00FFA3"}>
+          <AlertCircle size={20} />
+          <div>
+            <label>System Alerts</label>
+            <h3>{activeMetrics.outOfStockCount} Depleted Items</h3>
+          </div>
+        </MCard>
+        <MCard color="#00FFA3" className="desktop-only">
+          <TrendingUp size={20} />
+          <div>
+            <label>Inventory Flow</label>
+            <h3>Healthy (82%)</h3>
+          </div>
+        </MCard>
+      </MetricsStrip>
 
-        <Card $border={activeMetrics.outOfStockCount > 0 ? "#f43f5e88" : "transparent"}>
-          <div className="label-row"><label>Alerts</label><AlertCircle size={16} color="#f43f5e" /></div>
-          <h2 className={activeMetrics.outOfStockCount > 0 ? 'critical' : ''}>{activeMetrics.outOfStockCount} <small>Items</small></h2>
-        </Card>
-
-        <Card>
-          <div className="label-row"><label>Potential</label><TrendingUp size={16} color="#00E676" /></div>
-          <h2 className="yield">{activeMetrics.potentialRevenue.toLocaleString()}</h2>
-        </Card>
-      </MetricScrollContainer>
-
-      {/* --- FILTER TABS --- */}
-      <ControlBar>
-        <TabContainer>
+      {/* 3. SEARCH & FILTERS */}
+      <FilterSection>
+        <SearchContainer>
+          <Search size={18} color="#64748b" />
+          <input 
+            placeholder="Search by SKU, Serial or Name..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+          />
+        </SearchContainer>
+        
+        <PillContainer>
           {['All', 'Dairy', 'Grains', 'Electronics', 'Hygiene'].map(cat => (
-            <Tab key={cat} className={categoryFilter === cat ? 'active' : ''} onClick={() => {setCategoryFilter(cat); setCurrentPage(1);}}>
+            <FilterPill 
+              key={cat} 
+              active={categoryFilter === cat} 
+              onClick={() => setCategoryFilter(cat)}
+            >
               {cat}
-            </Tab>
+            </FilterPill>
           ))}
-        </TabContainer>
-        <button className="refresh-circle" onClick={fetchData}><RefreshCcw size={16} className={loading ? 'spin' : ''} /></button>
-      </ControlBar>
+          <RefreshBtn onClick={fetchData} loading={loading ? 1 : 0}>
+             <RefreshCcw size={16} />
+          </RefreshBtn>
+        </PillContainer>
+      </FilterSection>
 
-      {/* --- DATA VIEWPORT --- */}
-      <DataViewport>
-        {/* DESKTOP TABLE */}
-        <table className="desktop-grid">
-          <thead>
-            <tr><th>Asset</th><th>Sector</th><th>Stock</th><th>Status</th><th>Vel</th><th align="right">Ops</th></tr>
-          </thead>
-          <tbody>
-            <AnimatePresence mode='wait'>
-              {loading ? (
-                <tr><td colSpan="6" align="center" style={{padding: '50px'}}><Loader className="spin" size={24} color="#00B0FF" /></td></tr>
-              ) : paginated.map(p => (
-                  <motion.tr key={p._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                    <td><div className="name-block"><strong>{p.name}</strong><code>{p.sku}</code></div></td>
-                    <td><span className="cat-pill">{p.category}</span></td>
-                    <td><StockVal $isOut={p.totalStock === 0}>{p.totalStock} <small>{p.unit}</small></StockVal></td>
-                    <td><StatusBadge $type={p.totalStock === 0 ? 'out' : 'ok'}>{p.totalStock === 0 ? 'Empty' : 'OK'}</StatusBadge></td>
-                    <td><VelocityTag>{p.velocity || 'Med'}</VelocityTag></td>
-                    <td align="right">
-                      <div className="ops">
-                        <button onClick={() => setViewProduct(p)}><Eye size={16}/></button>
-                        <button onClick={() => setEditProduct(p)} className="edit"><Edit2 size={16}/></button>
-                        <button onClick={() => handleDelete(p._id)} className="del"><Trash2 size={16}/></button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))
-              }
-            </AnimatePresence>
-          </tbody>
-        </table>
+      {/* 4. DATA VIEWPORT */}
+      <DataPane>
+        <AnimatePresence mode="wait">
+          {loading ? (
+            <LoadingState key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <Loader className="spin" size={40} color="#00D1FF" />
+              <p>Synchronizing Registry...</p>
+            </LoadingState>
+          ) : (
+            <motion.div key="table" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              {/* DESKTOP TABLE */}
+              <TableWrapper>
+                <Table>
+                  <thead>
+                    <tr>
+                      <th>Product Identity</th>
+                      <th className="hide-sm">Category</th>
+                      <th>Quantity</th>
+                      <th className="hide-md">Status</th>
+                      <th align="right">Manage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map(p => (
+                      <tr key={p._id}>
+                        <td>
+                          <AssetCell>
+                            <div className="code">{p.sku}</div>
+                            <div className="name">{p.name}</div>
+                          </AssetCell>
+                        </td>
+                        <td className="hide-sm"><CatTag>{p.category}</CatTag></td>
+                        <td>
+                          <StockCount $isLow={p.totalStock === 0}>
+                            {p.totalStock} <span>{p.unit}</span>
+                          </StockCount>
+                        </td>
+                        <td className="hide-md">
+                          <StatusBadge $type={p.totalStock === 0 ? 'out' : 'ok'}>
+                            {p.totalStock === 0 ? 'Depleted' : 'Operational'}
+                          </StatusBadge>
+                        </td>
+                        <td align="right">
+                          <ActionGroup>
+                            <button onClick={() => setViewProduct(p)} className="eye"><Eye size={16}/></button>
+                            <button onClick={() => setEditProduct(p)} className="edit"><Edit2 size={16}/></button>
+                            <button className="del"><Trash2 size={16}/></button>
+                          </ActionGroup>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
 
-        {/* MOBILE CARDS */}
-        <div className="mobile-view">
-           {loading ? <div className="mob-load"><Loader className="spin" size={24} color="#00B0FF" /></div> : 
-             paginated.map(p => (
-             <div className="m-card" key={p._id}>
-                <div className="c-head">
-                  <div className="n-info"><strong>{p.name}</strong><code>{p.sku}</code></div>
-                  <StatusBadge $type={p.totalStock === 0 ? 'out' : 'ok'}>{p.totalStock === 0 ? 'Empty' : 'OK'}</StatusBadge>
-                </div>
-                <div className="c-grid">
-                   <div className="cell"><label>Qty</label><StockVal $isOut={p.totalStock === 0}>{p.totalStock} {p.unit}</StockVal></div>
-                   <div className="cell"><label>Sector</label><span>{p.category}</span></div>
-                   <div className="cell"><label>Value</label><span className="money">Rwf {(p.price * p.totalStock).toLocaleString()}</span></div>
-                </div>
-                <div className="c-foot">
-                   <button onClick={() => setViewProduct(p)} className="btn-view">View Details</button>
-                   <div className="icon-group">
-                      <button onClick={() => setEditProduct(p)} className="icon-btn edit"><Edit2 size={16}/></button>
-                      <button onClick={() => handleDelete(p._id)} className="icon-btn del"><Trash2 size={16}/></button>
-                   </div>
-                </div>
-             </div>
-           ))}
+              {/* MOBILE CARDS (Hidden on Desktop) */}
+              <MobileGrid>
+                {paginated.map(p => (
+                  <AssetCard key={p._id}>
+                    <div className="head">
+                       <div className="info"><strong>{p.name}</strong><code>{p.sku}</code></div>
+                       <StatusBadge $type={p.totalStock === 0 ? 'out' : 'ok'}>{p.totalStock === 0 ? 'Out' : 'In'}</StatusBadge>
+                    </div>
+                    <div className="body">
+                       <div className="item"><label>Volume</label><span>{p.totalStock} {p.unit}</span></div>
+                       <div className="item"><label>Category</label><span>{p.category}</span></div>
+                    </div>
+                    <div className="foot">
+                       <button className="full-btn" onClick={() => setViewProduct(p)}>Inspect Asset</button>
+                    </div>
+                  </AssetCard>
+                ))}
+              </MobileGrid>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </DataPane>
+
+      {/* 5. PAGINATION */}
+      <Pagination>
+        <p>Displaying {paginated.length} of {filteredProducts.length} assets</p>
+        <div className="nav">
+          <NavPage disabled={currentPage === 1} onClick={() => setCurrentPage(c => c-1)}><ChevronLeft size={20}/></NavPage>
+          <div className="page-info">{currentPage} / {totalPages}</div>
+          <NavPage disabled={currentPage === totalPages} onClick={() => setCurrentPage(c => c+1)}><ChevronRight size={20}/></NavPage>
         </div>
-      </DataViewport>
+      </Pagination>
 
-      {/* PAGINATION */}
-      <PaginationContainer>
-        <p><span>{filteredProducts.length}</span> items</p>
-        <div className="nav-group">
-          <button disabled={currentPage === 1} onClick={() => setCurrentPage(c => c - 1)}><ChevronLeft size={16}/></button>
-          <div className="page-num">{currentPage} / {totalPages}</div>
-          <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(c => c + 1)}><ChevronRight size={16}/></button>
-        </div>
-      </PaginationContainer>
+      <FloatingBtn onClick={() => setIsStockInOpen(true)}>
+        <Plus size={32} color="white" />
+      </FloatingBtn>
 
-      {/* MOBILE FLOATING ADD BUTTON */}
-      <FloatingAddButton onClick={() => setIsStockInOpen(true)}>
-        <Plus size={24} color="white" />
-      </FloatingAddButton>
-
-      {/* MODALS */}
+      {/* Modals placeholders */}
       {isStockInOpen && <StockInModal onClose={() => setIsStockInOpen(false)} onRefresh={fetchData} />}
       {isImportOpen && <ImportCSVModal onClose={() => setIsImportOpen(false)} onRefresh={fetchData} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onRefresh={fetchData} />}
       {viewProduct && <ProductDetailsModal product={viewProduct} batches={realData.batches?.filter(b => b.productId === viewProduct._id) || []} onClose={() => setViewProduct(null)} />}
-    </PageWrapper>
+    </PageLayout>
   );
 }
 
-// --- TITANIUM RESPONSIVE STYLES ---
+// --- STYLED COMPONENTS (RESPONSIVE FOCUS) ---
 
-const PageWrapper = styled(motion.div)`
-  max-width: 1400px; margin: 0 auto; padding: 1rem; color: #fff; background: #04080F; min-height: 100vh; padding-bottom: 80px;
-  @media (min-width: 768px) { padding: 2rem; }
+const PageLayout = styled.div`
+  min-height: 100vh;
+  background: #05080A;
+  color: #fff;
+  padding: 1rem;
+  font-family: 'Inter', sans-serif;
+  max-width: 1440px;
+  margin: 0 auto;
+  @media (min-width: 1024px) { padding: 2rem; }
 `;
 
-const HeaderSection = styled.header`
-  display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;
-  @media (min-width: 1024px) { flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; }
-  
-  .top-row { display: flex; justify-content: space-between; align-items: center; width: 100%;
-    @media (min-width: 1024px) { width: auto; gap: 2rem; } }
+const TopNav = styled.nav`
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
 
-  .brand-stack { display: flex; align-items: center; gap: 0.8rem;
-    .logo-outer { width: 40px; height: 40px; background: #0D1F2D; border-radius: 12px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.1); }
-    h1 { margin: 0; font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; span { color: #00B0FF; } } }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    h1 { font-size: 1.2rem; margin: 0; font-weight: 900; span { color: #00D1FF; } }
+    p { margin: 0; font-size: 0.7rem; color: #475569; letter-spacing: 1px; }
+  }
 
-  .mode-toggle { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
-    .dot { width: 6px; height: 6px; border-radius: 50%; &.live { background: #00E676; } &.sim { background: #FF9100; } }
-    .label { font-size: 0.65rem; font-weight: 800; color: #94a3b8; } }
-
-  .controls-row { display: flex; gap: 0.8rem; width: 100%; @media (min-width: 1024px) { width: auto; }
-    .search-box { background: #0D1F2D; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 0 1rem; display: flex; align-items: center; color: #64748b; flex: 1; height: 44px;
-      input { background: none; border: none; padding: 0 0 0 10px; color: white; outline: none; width: 100%; font-weight: 600; font-size: 0.9rem; } }
-    .icon-btn { background: #0D1F2D; border: 1px solid rgba(255,255,255,0.1); color: white; width: 44px; height: 44px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; 
-      &.primary { background: #00B0FF; width: auto; padding: 0 20px; gap: 8px; span { font-weight: 700; font-size: 0.85rem; } } }
-    .desktop-only { @media (max-width: 768px) { display: none; } } }
+  .actions { display: flex; gap: 10px; }
+  .desktop-only { @media (max-width: 768px) { display: none; } }
 `;
 
-// --- HORIZONTAL SCROLL METRICS (Mobile Friendly) ---
-const MetricScrollContainer = styled.div`
-  display: flex; gap: 1rem; margin-bottom: 1.5rem; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 10px;
-  &::-webkit-scrollbar { height: 4px; } &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-  @media (min-width: 1024px) { display: grid; grid-template-columns: repeat(3, 1fr); overflow: visible; padding-bottom: 0; }
+const ModeSwitch = styled.div`
+  background: #0F172A; border: 1px solid #1E293B; border-radius: 50px;
+  width: 140px; height: 38px; display: flex; align-items: center;
+  position: relative; cursor: pointer; padding: 4px;
+
+  .slider {
+    position: absolute; width: 66px; height: 30px; background: #00D1FF;
+    border-radius: 40px; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    left: ${p => p.$isDemo ? '70px' : '4px'};
+    box-shadow: 0 0 15px rgba(0, 209, 255, 0.4);
+  }
+
+  span {
+    flex: 1; z-index: 1; font-size: 0.65rem; font-weight: 800;
+    text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;
+    color: #94A3B8; transition: 0.3s;
+  }
+  .live { color: ${p => !p.$isDemo ? '#000' : '#94a3b8'}; }
+  .demo { color: ${p => p.$isDemo ? '#000' : '#94a3b8'}; }
 `;
 
-const Card = styled.div`
-  min-width: 260px; scroll-snap-align: start; flex-shrink: 0;
-  background: ${p => p.$bg || 'rgba(13, 31, 45, 0.4)'}; border: 1px solid ${p => p.$border || 'rgba(255,255,255,0.06)'}; padding: 1.2rem; border-radius: 20px; 
-  .label-row { display: flex; justify-content: space-between; label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; } }
-  .value-row { display: flex; align-items: baseline; gap: 6px; margin: 0.5rem 0; h2 { margin: 0; font-size: 1.5rem; font-weight: 900; &.yield { color: #00E676; } } small { font-weight: 900; color: #475569; font-size: 0.7rem; } }
-  .alert-content { margin: 0.5rem 0; h2 { margin: 0; font-size: 1.8rem; &.critical { color: #f43f5e; } } span { font-weight: 800; color: #64748b; font-size: 0.8rem; } }
-  .liquid-bar { margin-top: 8px; .bar-bg { height: 4px; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; .bar-fill { height: 100%; background: #00B0FF; } } }
+const NavBtn = styled.button`
+  background: #0F172A; border: 1px solid #1E293B; color: #fff;
+  width: 42px; height: 42px; border-radius: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
 `;
 
-const ControlBar = styled.div`
-  display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; gap: 1rem;
-  .refresh-circle { background: #0D1F2D; border: 1px solid rgba(255,255,255,0.1); color: #64748b; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; .spin { animation: spin 1s linear infinite; } }
-  @keyframes spin { to { transform: rotate(360deg); } }
+const PrimaryBtn = styled.button`
+  background: #00D1FF; color: #000; border: none; padding: 0 1.2rem;
+  border-radius: 10px; font-weight: 800; font-size: 0.85rem; height: 42px;
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
 `;
 
-const TabContainer = styled.div`
-  display: flex; background: #0D1F2D; padding: 4px; border-radius: 12px; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch;
-  &::-webkit-scrollbar { display: none; }
+const MetricsStrip = styled.div`
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;
+  margin-bottom: 2rem;
+  @media (min-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
 `;
 
-const Tab = styled.button`
-  background: none; border: none; color: #64748b; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 0.7rem; cursor: pointer; transition: 0.3s; white-space: nowrap;
-  @media (min-width: 768px) { padding: 10px 24px; font-size: 0.85rem; }
-  &.active { background: #00B0FF; color: white; }
+const MCard = styled.div`
+  background: #0F172A; border: 1px solid #1E293B; border-left: 4px solid ${p => p.color};
+  padding: 1.2rem; border-radius: 12px; display: flex; align-items: center; gap: 1rem;
+
+  svg { color: ${p => p.color}; }
+  label { display: block; font-size: 0.65rem; color: #64748B; text-transform: uppercase; font-weight: 800; }
+  h3 { margin: 0; font-size: 1.1rem; color: #fff; }
+
+  @media (max-width: 600px) {
+    padding: 0.8rem;
+    h3 { font-size: 0.9rem; }
+  }
 `;
 
-const DataViewport = styled.div`
-  /* DESKTOP TABLE - VISIBLE > 1100px */
-  .desktop-grid { width: 100%; border-collapse: collapse; display: none;
-    @media (min-width: 1100px) { display: table; }
-    th { text-align: left; padding: 1.2rem; font-size: 0.7rem; color: #64748b; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    td { padding: 1rem 1.2rem; border-bottom: 1px solid rgba(255,255,255,0.03); 
-      .name-block { strong { display: block; font-size: 0.9rem; } code { font-size: 0.65rem; color: #00B0FF; } }
-      .cat-pill { background: rgba(255,255,255,0.04); padding: 4px 10px; border-radius: 50px; font-size: 0.65rem; font-weight: 700; color: #94a3b8; }
-      .ops { display: flex; gap: 8px; button { background: rgba(255,255,255,0.05); border: none; color: #94a3b8; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; &:hover { background: #00B0FF; color: white; } } } } }
-
-  /* MOBILE CARD VIEW - VISIBLE < 1100px */
-  .mobile-view { display: flex; flex-direction: column; gap: 0.8rem; @media (min-width: 1100px) { display: none; }
-    .mob-load { display: flex; justify-content: center; padding: 4rem; }
-    .m-card { background: #0D1F2D; padding: 1rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08);
-      .c-head { display: flex; justify-content: space-between; margin-bottom: 0.8rem; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
-        .n-info { strong { display: block; font-size: 0.95rem; } code { font-size: 0.65rem; color: #00B0FF; } } }
-      .c-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 1rem; 
-        .cell { label { font-size: 0.6rem; color: #64748b; display: block; } span { font-size: 0.8rem; font-weight: 700; } .money { color: #00E676; } } }
-      .c-foot { display: flex; gap: 8px; 
-        .btn-view { flex: 1; padding: 8px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-weight: 700; font-size: 0.75rem; cursor: pointer; }
-        .icon-btn { width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.05); border: none; color: #94a3b8; display: flex; align-items: center; justify-content: center;
-          &.edit { color: #00E676; } &.del { color: #f43f5e; } } } } }
+const FilterSection = styled.div`
+  display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;
+  @media (min-width: 1024px) { flex-direction: row; justify-content: space-between; align-items: center; }
 `;
 
-const FloatingAddButton = styled.button`
-  position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; background: #00B0FF; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; border: none; box-shadow: 0 10px 30px rgba(0, 176, 255, 0.4); cursor: pointer; z-index: 100;
-  @media (min-width: 768px) { display: none; }
+const SearchContainer = styled.div`
+  background: #0F172A; border: 1px solid #1E293B; border-radius: 12px;
+  display: flex; align-items: center; padding: 0 1rem; height: 48px;
+  flex: 1; max-width: 400px;
+  input { background: none; border: none; color: #fff; margin-left: 10px; width: 100%; outline: none; }
 `;
 
-const StockVal = styled.div` font-weight: 800; color: ${p => p.$isOut ? '#f43f5e' : 'white'}; small { color: #64748b; font-size: 0.7rem; } `;
-const StatusBadge = styled.div` padding: 4px 10px; border-radius: 50px; font-size: 0.6rem; font-weight: 900; text-transform: uppercase; background: ${p => p.$type === 'out' ? '#f43f5e20' : '#00E67620'}; color: ${p => p.$type === 'out' ? '#f43f5e' : '#00E676'}; `;
-const VelocityTag = styled.div` font-size: 0.7rem; color: #64748b; display: flex; align-items: center; gap: 4px; &::before { content: '●'; font-size: 8px; color: #00B0FF; } `;
-const PaginationContainer = styled.div` display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; p { font-size: 0.75rem; color: #64748b; span { color: white; } } .nav-group { display: flex; gap: 10px; button { background: #0D1F2D; border: 1px solid rgba(255,255,255,0.1); color: white; width: 36px; height: 36px; border-radius: 10px; cursor: pointer; &:disabled { opacity: 0.3; } } .page-num { font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; } } `;
+const PillContainer = styled.div`
+  display: flex; align-items: center; gap: 8px; overflow-x: auto;
+  padding-bottom: 4px; &::-webkit-scrollbar { display: none; }
+`;
+
+const FilterPill = styled.button`
+  background: ${p => p.active ? '#00D1FF' : '#0F172A'};
+  color: ${p => p.active ? '#000' : '#94A3B8'};
+  border: 1px solid ${p => p.active ? '#00D1FF' : '#1E293B'};
+  padding: 8px 16px; border-radius: 50px; font-size: 0.75rem; font-weight: 700;
+  white-space: nowrap; cursor: pointer; transition: 0.2s;
+`;
+
+const RefreshBtn = styled.button`
+  background: none; border: none; color: #475569; cursor: pointer;
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+`;
+
+const DataPane = styled.div` min-height: 400px; `;
+
+const TableWrapper = styled.div`
+  display: none;
+  @media (min-width: 1024px) { 
+    display: block; background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; overflow: hidden;
+  }
+`;
+
+const Table = styled.table`
+  width: 100%; border-collapse: collapse;
+  th { text-align: left; padding: 1.2rem; font-size: 0.7rem; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #1E293B; }
+  td { padding: 1.2rem; border-bottom: 1px solid #1E293B; }
+  tr:hover { background: rgba(255,255,255,0.02); }
+
+  .hide-sm { @media (max-width: 1150px) { display: none; } }
+  .hide-md { @media (max-width: 1300px) { display: none; } }
+`;
+
+const AssetCell = styled.div`
+  .code { color: #00D1FF; font-size: 0.7rem; font-family: monospace; }
+  .name { font-weight: 700; color: #fff; }
+`;
+
+const CatTag = styled.span`
+  background: rgba(148, 163, 184, 0.1); color: #94A3B8;
+  padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+`;
+
+const StockCount = styled.div`
+  font-weight: 900; font-size: 1.1rem; color: ${p => p.$isLow ? '#FF3B6B' : '#fff'};
+  span { font-size: 0.7rem; color: #64748B; font-weight: 400; }
+`;
+
+const StatusBadge = styled.span`
+  padding: 4px 12px; border-radius: 50px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase;
+  background: ${p => p.$type === 'out' ? 'rgba(255, 59, 107, 0.1)' : 'rgba(0, 255, 163, 0.1)'};
+  color: ${p => p.$type === 'out' ? '#FF3B6B' : '#00FFA3'};
+`;
+
+const ActionGroup = styled.div`
+  display: flex; gap: 8px; justify-content: flex-end;
+  button {
+    width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer;
+    background: #1E293B; color: #94A3B8; display: flex; align-items: center; justify-content: center;
+    &:hover { color: #fff; background: #334155; }
+    &.del:hover { color: #FF3B6B; }
+  }
+`;
+
+const MobileGrid = styled.div`
+  display: flex; flex-direction: column; gap: 1rem;
+  @media (min-width: 1024px) { display: none; }
+`;
+
+const AssetCard = styled.div`
+  background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; padding: 1.2rem;
+  .head { display: flex; justify-content: space-between; margin-bottom: 1rem; 
+    strong { display: block; font-size: 1rem; } 
+    code { color: #00D1FF; font-size: 0.75rem; } }
+  .body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid #1E293B; padding-top: 1rem;
+    label { display: block; font-size: 0.6rem; color: #475569; text-transform: uppercase; }
+    span { font-weight: 700; } }
+  .foot { margin-top: 1rem; .full-btn { width: 100%; height: 40px; border-radius: 8px; background: #1E293B; border: none; color: #fff; font-weight: 700; } }
+`;
+
+const Pagination = styled.div`
+  margin-top: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+  @media (min-width: 768px) { flex-direction: row; justify-content: space-between; }
+  p { color: #64748B; font-size: 0.85rem; }
+  .nav { display: flex; align-items: center; gap: 1rem; }
+  .page-info { font-weight: 800; font-family: monospace; font-size: 1rem; color: #00D1FF; }
+`;
+
+const NavPage = styled.button`
+  width: 44px; height: 44px; border-radius: 50%; border: 1px solid #1E293B;
+  background: #0F172A; color: #fff; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; &:disabled { opacity: 0.2; }
+`;
+
+const FloatingBtn = styled.button`
+  position: fixed; bottom: 20px; right: 20px; width: 64px; height: 64px;
+  background: #00D1FF; border-radius: 20px; border: none; 
+  box-shadow: 0 8px 30px rgba(0, 209, 255, 0.4); display: flex; align-items: center; justify-content: center;
+  z-index: 100; cursor: pointer;
+  @media (min-width: 1024px) { display: none; }
+`;
+
+const LoadingState = styled(motion.div)`
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px;
+  p { margin-top: 1rem; color: #64748B; font-weight: 600; letter-spacing: 1px; }
+`;

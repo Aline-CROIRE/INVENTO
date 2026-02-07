@@ -67,20 +67,20 @@ app.get('/api/insights/dashboard', protect, check('getDashboardInsights', insigh
 app.get('/api/sales/report/detailed', protect, check('getDetailedReport', transactionController.getDetailedReport));
 
 // 6. SYSTEM TOOLS
-app.use('/api/system', seedRoutes); 
+app.use('/api/system', seedRoutes);
 
 // --- DB CONNECTION & START ---
 mongoose.set('strictQuery', false);
 mongoose.connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log('✅ Connected to MongoDB');
-    try {
-        await seedAdmin();
-    } catch (e) {
-        console.log('ℹ️ Seeding Note:', e.message);
-    }
-    app.listen(5000, () => console.log('🚀 Server running on http://localhost:5000'));
-  })
-  .catch(err => {
-    console.error('❌ MongoDB Connection Error:', err);
-  });
+    .then(async () => {
+        console.log('✅ Connected to MongoDB');
+        try {
+            await seedAdmin();
+        } catch (e) {
+            console.log('ℹ️ Seeding Note:', e.message);
+        }
+        app.listen(5000, () => console.log('🚀 Server running on https://invento-xidw.onrender.com'));
+    })
+    .catch(err => {
+        console.error('❌ MongoDB Connection Error:', err);
+    });

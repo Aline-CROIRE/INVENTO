@@ -11,7 +11,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -23,7 +23,7 @@ const Login = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Access Denied. Node Authentication Failed.');
+      setError('Invalid email or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -40,9 +40,9 @@ const Login = () => {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <HeroLogoArea>
+        <HeaderArea>
           <motion.div 
-            className="main-logo-glow"
+            className="logo-glow"
             animate={{ 
               scale: [1, 1.05, 1],
               opacity: [0.5, 0.8, 0.5] 
@@ -51,22 +51,24 @@ const Login = () => {
           />
           <motion.img 
             src="/logo.png" 
-            alt="Invento" 
-            className="hero-logo"
+            alt="Invento Logo" 
+            className="logo-img"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
           />
-          <p className="terminal-id">Intelligence System Terminal v4.0</p>
-        </HeroLogoArea>
+          <h2>Welcome Back</h2>
+          <p className="subtitle">Sign in to manage your inventory</p>
+        </HeaderArea>
 
         <form onSubmit={handleSubmit}>
           <InputGroup>
-            <label><Mail size={14} /> Node Identity</label>
+            <label><Mail size={14} /> Email Address</label>
             <div className="input-wrap">
               <input 
                 type="email" 
-                placeholder="operator@system.io" 
+                placeholder="yourname@example.com" 
+                value={email}
                 onChange={e => setEmail(e.target.value)} 
                 required 
               />
@@ -74,11 +76,12 @@ const Login = () => {
           </InputGroup>
 
           <InputGroup>
-            <label><Lock size={14} /> Security Key</label>
+            <label><Lock size={14} /> Password</label>
             <div className="input-wrap">
               <input 
                 type={showPassword ? "text" : "password"} 
-                placeholder="••••••••" 
+                placeholder="Enter your password" 
+                value={password}
                 onChange={e => setPassword(e.target.value)} 
                 required 
               />
@@ -90,18 +93,32 @@ const Login = () => {
 
           <AnimatePresence>
             {error && (
-              <ErrorMessage initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <ErrorMessage 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0 }}
+              >
                 {error}
               </ErrorMessage>
             )}
           </AnimatePresence>
 
-          <SubmitButton whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading}>
-            {loading ? <Loader2 className="spin" size={20} /> : <>Initialize Session <ArrowRight size={18} /></>}
+          <SubmitButton 
+            whileHover={{ scale: 1.02 }} 
+            whileTap={{ scale: 0.98 }} 
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="spin" size={20} />
+            ) : (
+              <>Sign In <ArrowRight size={18} /></>
+            )}
           </SubmitButton>
         </form>
 
-        <FooterText><ShieldCheck size={12} /> Secure Auth-Protocol Active</FooterText>
+        <FooterText>
+          <ShieldCheck size={12} /> Secure Connection Active
+        </FooterText>
       </GlassCard>
     </PageContainer>
   );
@@ -112,76 +129,183 @@ export default Login;
 // --- STYLES ---
 
 const PageContainer = styled.div`
-  height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center;
-  background: #02060A; overflow: hidden; position: relative; padding: 20px;
+  height: 100vh; 
+  width: 100vw; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  background: #02060A; 
+  overflow: hidden; 
+  position: relative; 
+  padding: 20px;
 `;
 
 const GridOverlay = styled.div`
-  position: absolute; inset: 0;
-  background-image: linear-gradient(rgba(0, 123, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 123, 255, 0.03) 1px, transparent 1px);
+  position: absolute; 
+  inset: 0; 
+  background-image: linear-gradient(rgba(0, 123, 255, 0.03) 1px, transparent 1px), 
+                    linear-gradient(90deg, rgba(0, 123, 255, 0.03) 1px, transparent 1px); 
   background-size: 50px 50px;
 `;
 
 const BackgroundBlob = styled.div`
-  position: absolute; width: 500px; height: 500px; filter: blur(100px); opacity: 0.3;
-  &.blob-1 { top: -10%; right: -10%; background: #007BFF; }
+  position: absolute; 
+  width: 500px; 
+  height: 500px; 
+  filter: blur(100px); 
+  opacity: 0.2; 
+  &.blob-1 { top: -10%; right: -10%; background: #007BFF; } 
   &.blob-2 { bottom: -10%; left: -10%; background: #00E676; }
 `;
 
 const GlassCard = styled(motion.div)`
-  background: rgba(13, 20, 30, 0.6); backdrop-filter: blur(20px); 
-  padding: 3rem; border-radius: 40px; border: 1px solid rgba(255, 255, 255, 0.05);
-  width: 100%; max-width: 460px; z-index: 10; box-shadow: 0 50px 100px rgba(0, 0, 0, 0.8);
-  @media (max-width: 480px) { padding: 2rem 1.5rem; }
+  background: rgba(13, 20, 30, 0.7); 
+  backdrop-filter: blur(20px);  
+  padding: 3rem; 
+  border-radius: 32px; 
+  border: 1px solid rgba(255, 255, 255, 0.08); 
+  width: 100%; 
+  max-width: 450px; 
+  z-index: 10; 
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6); 
+  
+  @media (max-width: 480px) { 
+    padding: 2.5rem 1.5rem; 
+  }
 `;
 
-const HeroLogoArea = styled.div`
-  position: relative; text-align: center; margin-bottom: 3rem;
-  
-  .hero-logo {
-    width: 200px; height: auto; position: relative; z-index: 2;
-    filter: drop-shadow(0 0 15px rgba(0, 123, 255, 0.4));
-    @media (max-width: 480px) { width: 160px; }
+const HeaderArea = styled.div`
+  position: relative; 
+  text-align: center; 
+  margin-bottom: 2.5rem;
+
+  .logo-img {
+    width: 120px; 
+    height: auto; 
+    position: relative; 
+    z-index: 2;
+    margin-bottom: 1.5rem;
   }
 
-  .main-logo-glow {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 220px; height: 120px; background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  h2 {
+    color: #fff;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .subtitle {
+    margin-top: 0.5rem; 
+    color: #94a3b8; 
+    font-size: 0.9rem;
+  }
+
+  .logo-glow {
+    position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
+    width: 150px; height: 100px; background: radial-gradient(circle, rgba(0, 123, 255, 0.2) 0%, transparent 70%);
     filter: blur(20px); z-index: 1;
-  }
-
-  .terminal-id {
-    margin-top: 1.5rem; color: #475569; font-size: 0.7rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase;
   }
 `;
 
 const InputGroup = styled.div`
-  margin-bottom: 1.5rem;
-  label { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
-  .input-wrap {
-    position: relative;
-    input {
-      width: 100%; padding: 16px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255,255,255,0.05);
-      border-radius: 16px; color: white; font-size: 1rem; transition: 0.3s;
-      &:focus { border-color: #007BFF; background: rgba(0, 123, 255, 0.05); outline: none; }
-    }
-    button { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #475569; cursor: pointer; }
+  margin-bottom: 1.25rem; 
+  
+  label { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    color: #94a3b8; 
+    font-size: 0.85rem; 
+    font-weight: 600; 
+    margin-bottom: 8px; 
+  } 
+  
+  .input-wrap { 
+    position: relative; 
+    input { 
+      width: 100%; 
+      padding: 14px 16px; 
+      background: rgba(0, 0, 0, 0.2); 
+      border: 1px solid rgba(255,255,255,0.1); 
+      border-radius: 12px; 
+      color: white; 
+      font-size: 1rem; 
+      transition: 0.2s; 
+      
+      &:focus { 
+        border-color: #007BFF; 
+        background: rgba(0, 123, 255, 0.03); 
+        outline: none; 
+      } 
+    } 
+    
+    button { 
+      position: absolute; 
+      right: 12px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      background: none; 
+      border: none; 
+      color: #64748b; 
+      cursor: pointer; 
+      display: flex;
+      align-items: center;
+      &:hover { color: #94a3b8; }
+    } 
   }
 `;
 
 const SubmitButton = styled(motion.button)`
-  width: 100%; padding: 18px; background: #007BFF; color: white; border: none; border-radius: 18px;
-  font-weight: 900; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px;
-  margin-top: 1rem; box-shadow: 0 10px 20px rgba(0, 123, 255, 0.3);
-  &:disabled { opacity: 0.5; }
+  width: 100%; 
+  padding: 16px; 
+  background: #007BFF; 
+  color: white; 
+  border: none; 
+  border-radius: 14px; 
+  font-weight: 700; 
+  font-size: 1rem; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 10px; 
+  margin-top: 1.5rem; 
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.2); 
+  
+  &:disabled { 
+    opacity: 0.6; 
+    cursor: not-allowed; 
+  }
+
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 `;
 
 const ErrorMessage = styled(motion.div)`
-  background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 12px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2);
-  font-size: 0.8rem; font-weight: 700; margin-bottom: 1rem; text-align: center;
+  background: rgba(239, 68, 68, 0.1); 
+  color: #f87171; 
+  padding: 12px; 
+  border-radius: 10px; 
+  border: 1px solid rgba(239, 68, 68, 0.2); 
+  font-size: 0.85rem; 
+  font-weight: 500; 
+  margin-bottom: 1rem; 
+  text-align: center;
 `;
 
 const FooterText = styled.div`
-  margin-top: 2rem; color: #475569; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 2rem; 
+  color: #64748b; 
+  font-size: 0.75rem; 
+  font-weight: 600; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 6px;
 `;
