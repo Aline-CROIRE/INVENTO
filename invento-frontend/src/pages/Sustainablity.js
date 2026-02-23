@@ -1,13 +1,9 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { PieChart } from 'lucide-react';
-
 import styled from 'styled-components';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  TrendingUp, Printer, Zap, AlertTriangle,
-  ShieldCheck, Activity, Layers,
-  Calendar, Radio, Leaf, Recycle, RefreshCcw,
-  BarChart3, Info, ChevronRight, Target, Globe
+  Printer, Zap, AlertTriangle, ShieldCheck, Activity, Layers,
+  Radio, Leaf, RefreshCcw, BarChart3, Target, Globe, PieChart as PieIcon
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -17,7 +13,6 @@ import {
 import api from '../api/axios';
 
 export default function Sustainability() {
-  // --- CORE STATE ---
   const [viewScope, setViewScope] = useState('MONTH');
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -31,8 +26,9 @@ export default function Sustainability() {
   const COLORS = {
     profit: '#00E676',
     revenue: '#00B0FF',
-    waste: '#FFB300', // Professional Amber
-    nodes: '#885AF8'
+    waste: '#FFB300', 
+    opex: '#f43f5e',
+    cogs: '#885AF8'
   };
 
   // --- 1. INTELLIGENT DATA ENGINE ---
@@ -49,9 +45,12 @@ export default function Sustainability() {
       }));
 
       return {
-        netProfit: 2150000 + (seed % 500),
-        wasteLoss: 112000 + (seed % 200),
-        efficiencyScore: 92.4,
+        totalRevenue: 3450000,
+        netProfit: 1250000,
+        wasteLoss: 112000,
+        opEx: 450000,
+        cogs: 1638000,
+        efficiencyScore: 42.5, // Gross Margin
         timeline,
         categories: [
           { name: 'Dairy', waste: 45000 },
@@ -59,15 +58,34 @@ export default function Sustainability() {
           { name: 'Produce', waste: 35000 },
           { name: 'Pharma', waste: 8000 }
         ],
-        insight: `Audit for ${isYearly ? selectedYear : monthNames[selectedMonth - 1]} indicates optimal capital rotation.`
+        insight: `Operating expenses consume 13% of revenue. Expired waste accounts for 3%. Capital flow is stable but can be optimized.`
       };
     }
 
     // --- LIVE PRODUCTION MAPPING ---
     const m = realData?.summary || {};
+    const rev = Number(m.totalRevenue || 0);
+    const waste = Number(m.expiredLoss || 0);
+    const opex = Number(m.totalOperatingExpenses || 0);
+    const net = Number(m.netProfit || 0);
+    const gross = Number(m.grossProfit || 0);
+    const cogs = rev - gross;
+
+    let dynamicInsight = "System running optimally.";
+    if (rev > 0) {
+      const opexPct = ((opex / rev) * 100).toFixed(1);
+      const wastePct = ((waste / rev) * 100).toFixed(1);
+      if (wastePct > 5) dynamicInsight = `Warning: Expired waste is consuming ${wastePct}% of revenue. Review inventory rotation immediately.`;
+      else if (opexPct > 40) dynamicInsight = `Alert: Operating expenses are exceptionally high (${opexPct}% of revenue). Audit required.`;
+      else dynamicInsight = `Operating expenses consume ${opexPct}% of revenue. Expired waste accounts for ${wastePct}%. Capital flow is healthy.`;
+    }
+
     return {
-      netProfit: Number(m.netProfit || 0),
-      wasteLoss: Number(m.expiredLoss || 0),
+      totalRevenue: rev,
+      netProfit: net,
+      wasteLoss: waste,
+      opEx: opex,
+      cogs: cogs,
       efficiencyScore: Number(m.grossMargin || 0),
       timeline: (realData?.timeline || []).map(t => ({
         date: t.date || '?',
@@ -78,11 +96,10 @@ export default function Sustainability() {
         name: c.name || 'Other',
         waste: Number(c.waste || 0)
       })),
-      insight: realData?.insights?.[0]?.message || "Analyzing system logs for efficiency delyas..."
+      insight: dynamicInsight
     };
   }, [isDemoMode, realData, viewScope, selectedYear, selectedMonth]);
 
-  // --- 2. DATA FETCHING ---
   const fetchData = useCallback(async () => {
     if (isDemoMode) return;
     setLoading(true);
@@ -98,25 +115,19 @@ export default function Sustainability() {
     }
   }, [isDemoMode, viewScope, selectedYear, selectedMonth]);
 
-  useEffect(() => {
-    if (!isDemoMode) fetchData();
-  }, [fetchData, isDemoMode]);
+  useEffect(() => { if (!isDemoMode) fetchData(); }, [fetchData, isDemoMode]);
 
   return (
     <PageWrapper initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
-      {/* --- ELITE COMMAND HEADER --- */}
       <HeaderSection className="no-print">
         <div className="branding">
-          <div className="mode-selector" onClick={() => {
-            setIsDemoMode(!isDemoMode);
-            if (!isDemoMode) setRealData(null);
-          }}>
+          <div className="mode-selector" onClick={() => { setIsDemoMode(!isDemoMode); if (!isDemoMode) setRealData(null); }}>
             <div className={`status-dot ${isDemoMode ? 'sim' : 'live'}`} />
             <span className="mode-label">{isDemoMode ? 'SIMULATION' : 'LIVE AUDIT'}</span>
             <Radio size={14} className={!isDemoMode ? 'pulse' : ''} />
           </div>
-          <h1>Sustainability <span>Analytics</span></h1>
+          <h1>Financial & <span>Sustainability Audit</span></h1>
         </div>
 
         <div className="action-deck">
@@ -147,39 +158,42 @@ export default function Sustainability() {
         </div>
       </HeaderSection>
 
-      {/* --- TOP METRIC TILES --- */}
       <MetricCluster className="no-print">
-        <MetricCard $color={COLORS.profit}>
-          <div className="card-top"><label>Efficiency Rate</label><Activity size={18} color={COLORS.profit} /></div>
+        <MetricCard $color={COLORS.revenue}>
+          <div className="card-top"><label>Gross Margin</label><Activity size={18} color={COLORS.revenue} /></div>
           <div className="card-val">{Number(data.efficiencyScore || 0).toFixed(1)}<small>%</small></div>
           <div className="bar-track"><motion.div className="fill" initial={{ width: 0 }} animate={{ width: `${data.efficiencyScore}%` }} /></div>
         </MetricCard>
 
         <MetricCard $color={COLORS.waste}>
-          <div className="card-top"><label> Value of Expired Products</label><AlertTriangle size={18} color={COLORS.waste} /></div>
+          <div className="card-top"><label>Expired Waste Loss</label><AlertTriangle size={18} color={COLORS.waste} /></div>
           <div className="card-val"><small>Rwf</small> {data.wasteLoss.toLocaleString()}</div>
           <div className="card-sub">Capital lost to expiration</div>
         </MetricCard>
 
-        <MetricCard $color={COLORS.revenue}>
-          <div className="card-top"><label>Real Profit</label><ShieldCheck size={18} color={COLORS.revenue} /></div>
+        <MetricCard $color={COLORS.opex}>
+          <div className="card-top"><label>Operating Expenses</label><Layers size={18} color={COLORS.opex} /></div>
+          <div className="card-val"><small>Rwf</small> {data.opEx.toLocaleString()}</div>
+          <div className="card-sub">Rent, Salaries & Overheads</div>
+        </MetricCard>
+
+        <MetricCard $color={COLORS.profit}>
+          <div className="card-top"><label>True Net Profit</label><ShieldCheck size={18} color={COLORS.profit} /></div>
           <div className="card-val"><small>Rwf</small> {data.netProfit.toLocaleString()}</div>
-          <div className="card-sub">Liquid profit after waste</div>
+          <div className="card-sub">Final liquid earnings</div>
         </MetricCard>
       </MetricCluster>
 
-      {/* --- BENTO ANALYTICS GRID --- */}
       <BentoLayout className="no-print">
 
-        {/* CHART: AREA FLOW */}
         <ContentCard className="span-8">
           <div className="card-header">
             <div className="meta">
-              <h3>Financial Resource Dynamics</h3>
-              <p>Timeline of revenue vs identified leakage.</p>
+              <h3>Revenue vs Expiration Waste</h3>
+              <p>Tracking the financial impact of resource degradation over time.</p>
             </div>
             <div className="legend">
-              <span className="item"><i style={{ background: COLORS.profit }} /> Revenue</span>
+              <span className="item"><i style={{ background: COLORS.revenue }} /> Revenue</span>
               <span className="item"><i style={{ background: COLORS.waste }} /> Waste</span>
             </div>
           </div>
@@ -188,8 +202,8 @@ export default function Sustainability() {
               <AreaChart data={data.timeline}>
                 <defs>
                   <linearGradient id="glowRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.profit} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.profit} stopOpacity={0} />
+                    <stop offset="5%" stopColor={COLORS.revenue} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={COLORS.revenue} stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="glowWaste" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={COLORS.waste} stopOpacity={0.3} />
@@ -200,32 +214,30 @@ export default function Sustainability() {
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis hide />
                 <Tooltip contentStyle={{ background: '#0D1F2D', border: 'none', borderRadius: '15px' }} />
-                <Area type="monotone" dataKey="revenue" stroke={COLORS.profit} strokeWidth={4} fill="url(#glowRev)" />
+                <Area type="monotone" dataKey="revenue" stroke={COLORS.revenue} strokeWidth={4} fill="url(#glowRev)" />
                 <Area type="monotone" dataKey="waste" stroke={COLORS.waste} strokeWidth={4} fill="url(#glowWaste)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </ContentCard>
 
-        {/* INSIGHT CARD */}
         <StrategyCard className="span-4">
           <div className="icon-box"><Zap size={24} color="#FFD600" fill="#FFD600" /></div>
-          <h4>Sustainablity Advice</h4>
+          <h4>Financial AI Insight</h4>
           <p className="narrative">{data.insight}</p>
           <div className="advice">
             <Target size={14} color={COLORS.profit} />
-            <p>Reduce procurement cycles by 12% to minimize storage degradation.</p>
+            <p>Ensure operating expenses remain under 20% of total revenue to protect True Net Margins.</p>
           </div>
           <div className="footer-node">
             <Globe size={12} />
-            <span>Verified by IIS Node 04</span>
+            <span>Verified by Invento IIS-04</span>
           </div>
         </StrategyCard>
 
-        {/* CHART: BAR CATEGORY */}
         <ContentCard className="span-6">
           <div className="card-header">
-            <h3>Products Expiration By Category</h3>
+            <h3>Expiration by Category</h3>
             <BarChart3 size={18} color={COLORS.waste} />
           </div>
           <div className="canvas-sm">
@@ -240,23 +252,30 @@ export default function Sustainability() {
           </div>
         </ContentCard>
 
-        {/* CHART: PIE CAPITAL */}
         <ContentCard className="span-6">
           <div className="card-header">
-            <h3>Capital Distribution</h3>
-            <PieChart size={18} color={COLORS.revenue} />
+            <h3>Comprehensive Capital Distribution</h3>
+            <PieIcon size={18} color={COLORS.profit} />
           </div>
           <div className="canvas-sm flex-center">
             <ResponsiveContainer width="100%" height={240}>
               <RePie>
                 <Pie
-                  data={[{ name: 'Profit', value: data.netProfit }, { name: 'Loss', value: data.wasteLoss }]}
+                  data={[
+                    { name: 'True Profit', value: Math.max(0, data.netProfit) },
+                    { name: 'COGS', value: Math.max(0, data.cogs) },
+                    { name: 'OpEx', value: data.opEx },
+                    { name: 'Waste', value: data.wasteLoss }
+                  ]}
                   innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none"
                 >
-                  <Cell fill={COLORS.profit} /><Cell fill={COLORS.waste} />
+                  <Cell fill={COLORS.profit} />
+                  <Cell fill={COLORS.cogs} />
+                  <Cell fill={COLORS.opex} />
+                  <Cell fill={COLORS.waste} />
                 </Pie>
                 <Tooltip />
-                <Legend verticalAlign="bottom" align="center" height={36} />
+                <Legend verticalAlign="bottom" align="center" height={36} wrapperStyle={{ fontSize: '12px' }}/>
               </RePie>
             </ResponsiveContainer>
           </div>
@@ -269,8 +288,8 @@ export default function Sustainability() {
           <div className="brand">
             <Leaf size={32} color="#00E676" />
             <div className="b-text">
-              <h1>INVENTO INTELLIGENCE SYSTEMS</h1>
-              <p>Official Sustainability & Resource Audit</p>
+              <h1>INVENTO FINANCIAL AUDIT</h1>
+              <p>Official Sustainability & Resource Report</p>
             </div>
           </div>
           <div className="doc-meta">
@@ -281,12 +300,13 @@ export default function Sustainability() {
         </div>
 
         <div className="doc-pillars">
-          <div className="p-card"><span>Efficiency Rating</span><strong>{data.efficiencyScore}%</strong></div>
-          <div className="p-card"><span>Net Realized Profit</span><strong>Rwf {data.netProfit.toLocaleString()}</strong></div>
+          <div className="p-card"><span>Gross Revenue</span><strong>Rwf {data.totalRevenue.toLocaleString()}</strong></div>
+          <div className="p-card"><span>Operating Expenses</span><strong>Rwf {data.opEx.toLocaleString()}</strong></div>
           <div className="p-card"><span>Total Capital Waste</span><strong>Rwf {data.wasteLoss.toLocaleString()}</strong></div>
+          <div className="p-card" style={{borderColor: '#00E676'}}><span>True Net Profit</span><strong style={{color: '#00994d'}}>Rwf {data.netProfit.toLocaleString()}</strong></div>
         </div>
 
-        <h3 className="section-title">Breakdown by Business Sector</h3>
+        <h3 className="section-title">Waste Breakdown by Business Sector</h3>
         <table className="doc-table">
           <thead>
             <tr><th>Category Name</th><th align="right">Loss Identified (RWF)</th><th align="right">Status</th></tr>
@@ -320,10 +340,10 @@ export default function Sustainability() {
             .b-text h1 { font-size: 22px; font-weight: 900; margin: 0; }
             .b-text p { font-size: 11px; color: #444; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
             .doc-meta p { font-size: 10px; text-align: right; margin: 2px 0; }
-            .doc-pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 50px; }
-            .p-card { border: 1.5px solid #eee; padding: 20px; border-radius: 10px; background: #fafafa; }
-            .p-card span { display: block; font-size: 9px; text-transform: uppercase; color: #666; font-weight: 700; margin-bottom: 5px; }
-            .p-card strong { font-size: 20px; }
+            .doc-pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 50px; }
+            .p-card { border: 1.5px solid #eee; padding: 15px; border-radius: 8px; background: #fafafa; }
+            .p-card span { display: block; font-size: 8px; text-transform: uppercase; color: #666; font-weight: 700; margin-bottom: 5px; }
+            .p-card strong { font-size: 16px; }
             .section-title { font-size: 14px; text-transform: uppercase; margin-bottom: 15px; border-left: 4px solid #00E676; padding-left: 10px; }
             .doc-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 60px; }
             .doc-table th { background: #f5f5f5; padding: 12px; border-bottom: 1.5px solid #000; }
@@ -333,80 +353,15 @@ export default function Sustainability() {
             .no-print { display: none !important; }
         }
       `}</style>
-
     </PageWrapper>
   );
 }
 
-// --- STYLES (Advanced Responsive Architecture) ---
-
-const PageWrapper = styled(motion.div)`
-  max-width: 1400px; margin: 0 auto; padding: 1rem; color: #fff; background: #04080F; min-height: 100vh;
-  @media (min-width: 768px) { padding: 2.5rem; }
-`;
-
-const HeaderSection = styled.header`
-  display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 3.5rem;
-  @media (min-width: 1100px) { flex-direction: row; justify-content: space-between; align-items: flex-end; }
-  
-  .branding {
-    .mode-selector { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); padding: 6px 16px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px;
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; &.live { background: #00E676; box-shadow: 0 0 10px #00E676; } &.sim { background: #FFB300; } }
-        .mode-label { font-size: 0.65rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; } }
-    h1 { font-size: 2.5rem; margin: 0; font-weight: 900; letter-spacing: -1.5px; span { color: #00E676; } } }
-  
-  .action-deck { display: flex; gap: 1rem; flex-wrap: wrap; 
-    .deck-glass { display: flex; align-items: center; gap: 12px; background: #0D1F2D; padding: 8px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06);
-        .scope-pills { display: flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px;
-            button { border: none; background: none; color: #64748b; padding: 8px 16px; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: 0.3s;
-                &.active { background: #fff; color: #000; border-radius: 8px; } } }
-        .divider-v { width: 1.5px; height: 25px; background: rgba(255,255,255,0.1); }
-        .pickers select { background: none; border: none; color: #fff; font-weight: 800; outline: none; cursor: pointer; font-size: 0.85rem; padding: 0 5px; }
-        .sync-trigger { background: none; border: none; color: #64748b; cursor: pointer; transition: 0.3s; &.spin { animation: spin 1s linear infinite; } &:hover { color: #fff; } } }
-    .print-action { background: #00E676; color: #04090E; border: none; padding: 0 24px; border-radius: 14px; font-weight: 900; height: 50px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; &:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 230, 118, 0.3); } } }
-  
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-`;
-
-const MetricCluster = styled.div`
-  display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 3.5rem;
-  @media (min-width: 650px) { grid-template-columns: repeat(2, 1fr); }
-  @media (min-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
-`;
-
-const MetricCard = styled.div`
-  background: rgba(13,31,45,0.4); padding: 2rem; border-radius: 30px; border: 1px solid rgba(255,255,255,0.05); border-top: 5px solid ${p => p.$color};
-  .card-top { display: flex; justify-content: space-between; align-items: center; label { font-size: 0.75rem; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; } }
-  .card-val { font-size: 2.2rem; font-weight: 900; margin: 15px 0; color: #fff; small { font-size: 1rem; color: #475569; margin-right: 5px; } }
-  .card-sub { font-size: 0.8rem; color: #64748b; font-weight: 600; }
-  .bar-track { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 15px; .fill { height: 100%; border-radius: 10px; transition: 1.5s cubic-bezier(0.4, 0, 0.2, 1); } }
-`;
-
-const BentoLayout = styled.div`
-  display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem;
-  .span-8 { grid-column: span 12; @media (min-width: 1100px) { grid-column: span 8; } }
-  .span-4 { grid-column: span 12; @media (min-width: 1100px) { grid-column: span 4; } }
-  .span-6 { grid-column: span 12; @media (min-width: 800px) { grid-column: span 6; } }
-`;
-
-const ContentCard = styled.div`
-  background: rgba(13,31,45,0.4); padding: 2rem; border-radius: 35px; border: 1px solid rgba(255,255,255,0.05);
-  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; 
-    h3 { font-size: 1.2rem; margin: 0; font-weight: 900; } 
-    p { font-size: 0.85rem; color: #64748b; margin-top: 5px; }
-    .legend { display: flex; gap: 15px; font-size: 0.75rem; font-weight: 800; color: #64748b;
-        .item { display: flex; align-items: center; gap: 6px; i { width: 8px; height: 8px; border-radius: 50%; } } } }
-  .canvas { height: 350px; }
-  .canvas-sm { height: 250px; }
-  .flex-center { display: flex; align-items: center; justify-content: center; }
-`;
-
-const StrategyCard = styled.div`
-  background: linear-gradient(145deg, #1A237E 0%, #0D1F2D 100%); padding: 2.5rem; border-radius: 35px; border: 1.5px solid rgba(255,255,255,0.1); display: flex; flex-direction: column;
-  .icon-box { width: 60px; height: 60px; border-radius: 20px; background: rgba(255, 214, 0, 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
-  h4 { font-size: 1.4rem; margin: 0 0 12px; font-weight: 900; }
-  .narrative { font-size: 0.95rem; line-height: 1.7; color: rgba(255,255,255,0.7); }
-  .advice { background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 15px; border-left: 4px solid #00E676; margin: 2rem 0;
-    p { margin: 0; font-size: 0.85rem; color: #fff; font-weight: 600; line-height: 1.5; } }
-  .footer-node { margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 0.65rem; font-weight: 900; color: #00E676; text-transform: uppercase; letter-spacing: 1px; }
-`;
+// --- STYLES ---
+const PageWrapper = styled(motion.div)`max-width: 1400px; margin: 0 auto; padding: 1rem; color: #fff; background: #04080F; min-height: 100vh; @media (min-width: 768px) { padding: 2.5rem; }`;
+const HeaderSection = styled.header`display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 3.5rem; @media (min-width: 1100px) { flex-direction: row; justify-content: space-between; align-items: flex-end; } .branding { .mode-selector { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); padding: 6px 16px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; .status-dot { width: 8px; height: 8px; border-radius: 50%; &.live { background: #00E676; box-shadow: 0 0 10px #00E676; } &.sim { background: #FFB300; } } .mode-label { font-size: 0.65rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; } } h1 { font-size: 2.2rem; margin: 0; font-weight: 900; letter-spacing: -1px; span { color: #00E676; } } } .action-deck { display: flex; gap: 1rem; flex-wrap: wrap; .deck-glass { display: flex; align-items: center; gap: 12px; background: #0D1F2D; padding: 8px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); .scope-pills { display: flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px; button { border: none; background: none; color: #64748b; padding: 8px 16px; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: 0.3s; &.active { background: #fff; color: #000; border-radius: 8px; } } } .divider-v { width: 1.5px; height: 25px; background: rgba(255,255,255,0.1); } .pickers select { background: none; border: none; color: #fff; font-weight: 800; outline: none; cursor: pointer; font-size: 0.85rem; padding: 0 5px; } .sync-trigger { background: none; border: none; color: #64748b; cursor: pointer; transition: 0.3s; &.spin { animation: spin 1s linear infinite; } &:hover { color: #fff; } } } .print-action { background: #00E676; color: #04090E; border: none; padding: 0 24px; border-radius: 14px; font-weight: 900; height: 50px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; &:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 230, 118, 0.3); } } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+const MetricCluster = styled.div`display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 3.5rem; @media (min-width: 650px) { grid-template-columns: repeat(2, 1fr); } @media (min-width: 1100px) { grid-template-columns: repeat(4, 1fr); }`;
+const MetricCard = styled.div`background: rgba(13,31,45,0.4); padding: 1.8rem; border-radius: 25px; border: 1px solid rgba(255,255,255,0.05); border-top: 4px solid ${p => p.$color}; .card-top { display: flex; justify-content: space-between; align-items: center; label { font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; } } .card-val { font-size: 1.8rem; font-weight: 900; margin: 15px 0; color: #fff; small { font-size: 0.9rem; color: #475569; margin-right: 5px; } } .card-sub { font-size: 0.75rem; color: #64748b; font-weight: 600; } .bar-track { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-top: 15px; .fill { height: 100%; border-radius: 10px; transition: 1.5s cubic-bezier(0.4, 0, 0.2, 1); } }`;
+const BentoLayout = styled.div`display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; .span-8 { grid-column: span 12; @media (min-width: 1100px) { grid-column: span 8; } } .span-4 { grid-column: span 12; @media (min-width: 1100px) { grid-column: span 4; } } .span-6 { grid-column: span 12; @media (min-width: 800px) { grid-column: span 6; } }`;
+const ContentCard = styled.div`background: rgba(13,31,45,0.4); padding: 2rem; border-radius: 35px; border: 1px solid rgba(255,255,255,0.05); .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem; h3 { font-size: 1.2rem; margin: 0; font-weight: 900; } p { font-size: 0.85rem; color: #64748b; margin-top: 5px; } .legend { display: flex; gap: 15px; font-size: 0.75rem; font-weight: 800; color: #64748b; .item { display: flex; align-items: center; gap: 6px; i { width: 8px; height: 8px; border-radius: 50%; } } } } .canvas { height: 350px; } .canvas-sm { height: 250px; } .flex-center { display: flex; align-items: center; justify-content: center; }`;
+const StrategyCard = styled.div`background: linear-gradient(145deg, #1A237E 0%, #0D1F2D 100%); padding: 2.5rem; border-radius: 35px; border: 1.5px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; .icon-box { width: 60px; height: 60px; border-radius: 20px; background: rgba(255, 214, 0, 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; } h4 { font-size: 1.4rem; margin: 0 0 12px; font-weight: 900; } .narrative { font-size: 0.95rem; line-height: 1.7; color: rgba(255,255,255,0.7); } .advice { background: rgba(255,255,255,0.04); padding: 1.2rem; border-radius: 15px; border-left: 4px solid #00E676; margin: 2rem 0; p { margin: 0; font-size: 0.85rem; color: #fff; font-weight: 600; line-height: 1.5; } } .footer-node { margin-top: auto; display: flex; align-items: center; gap: 8px; font-size: 0.65rem; font-weight: 900; color: #00E676; text-transform: uppercase; letter-spacing: 1px; }`;

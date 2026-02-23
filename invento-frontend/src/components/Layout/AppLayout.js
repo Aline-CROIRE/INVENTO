@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import Sidebar from './Sidebar';
-import TopBar from './Topbar';
+// Ensure you have Topbar.jsx in the same directory, or remove/adjust the import if you don't use it!
+import TopBar from './Topbar'; 
 import { Menu } from 'lucide-react';
 
 const AppLayout = ({ children }) => {
@@ -18,10 +19,12 @@ const AppLayout = ({ children }) => {
         <MobileHeader className="no-print">
             <button onClick={() => setIsCollapsed(false)}><Menu /></button>
             <img src="/logo.png" alt="Invento" height="30" />
-            <div style={{width: 24}} /> {/* Spacer */}
+            <div style={{width: 24}} /> {/* Spacer to balance flexbox */}
         </MobileHeader>
 
+        {/* Note: If TopBar is not used, you can safely remove it */}
         <TopBar />
+        
         <ScrollArea>
            <div className="content-deck">
               {children}
@@ -32,7 +35,15 @@ const AppLayout = ({ children }) => {
   );
 };
 
-const LayoutWrapper = styled.div` display: flex; min-height: 100vh; background: #04090E; `;
+export default AppLayout;
+
+// --- STYLES ---
+
+const LayoutWrapper = styled.div` 
+  display: flex; 
+  min-height: 100vh; 
+  background: #04090E; 
+`;
 
 const MainContainer = styled.div`
   flex: 1;
@@ -58,15 +69,30 @@ const MobileHeader = styled.div`
     padding: 1rem 1.5rem;
     background: #04090E;
     border-bottom: 1px solid rgba(255,255,255,0.05);
-    button { background: none; border: none; color: white; cursor: pointer; }
+    button { 
+      background: none; 
+      border: none; 
+      color: white; 
+      cursor: pointer; 
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 `;
 
 const ScrollArea = styled.main`
   flex: 1;
   padding: 2.5rem;
-  .content-deck { max-width: 1400px; margin: 0 auto; width: 100%; }
-  @media (max-width: 768px) { padding: 1.5rem 1rem; }
-`;
+  overflow-y: auto; /* Ensures main content can scroll independently if needed */
+  
+  .content-deck { 
+    max-width: 1400px; 
+    margin: 0 auto; 
+    width: 100%; 
+  }
 
-export default AppLayout;
+  @media (max-width: 768px) { 
+    padding: 1.5rem 1rem; 
+  }
+`;

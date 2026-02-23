@@ -12,6 +12,7 @@ import AppLayout from './components/Layout/AppLayout';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Sales = lazy(() => import('./pages/Sales'));
+const Expenses = lazy(() => import('./pages/Expenses')); // NEW: Expenses Page
 const Users = lazy(() => import('./pages/Users'));
 const Login = lazy(() => import('./pages/Login'));
 const SetupPassword = lazy(() => import('./pages/SetupPassword'));
@@ -80,6 +81,13 @@ function App() {
               </RoleRoute>
             } />
 
+            {/* NEW EXPENSES ROUTE */}
+            <Route path="/expenses" element={
+              <RoleRoute roles={['OWNER', 'WORKER']}>
+                <Expenses />
+              </RoleRoute>
+            } />
+
             <Route path="/users" element={
               <RoleRoute roles={['ADMIN', 'OWNER']}>
                 <Users />
@@ -91,11 +99,13 @@ function App() {
                 <Sustainability />
               </RoleRoute>
             } />
+            
             <Route path="/settings" element={
               <RoleRoute roles={['ADMIN', 'OWNER', 'WORKER']}>
                 <Settings />
               </RoleRoute>
             } />
+
             {/* REDIRECTS */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

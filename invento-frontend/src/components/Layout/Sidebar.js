@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Package, ShoppingCart, Users,
-  Leaf, Settings, LogOut, ChevronLeft, Menu, Shield, User
+  Leaf, Settings, LogOut, ChevronLeft, Menu, Shield, User, Receipt
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -22,7 +22,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [setIsCollapsed]);
 
-  // MENU CONFIGURATION - Roles updated to exclude ADMIN from Inventory/Sustainability
+  // MENU CONFIGURATION - Added Expenses
   const menuItems = [
     {
       name: 'Overview',
@@ -34,7 +34,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       name: 'Products & Stock',
       path: '/inventory',
       icon: <Package size={22} />,
-      roles: ['OWNER', 'WORKER'] // ADMIN removed
+      roles: ['OWNER', 'WORKER'] 
     },
     {
       name: 'Sales Records',
@@ -43,10 +43,16 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       roles: ['OWNER', 'WORKER']
     },
     {
+      name: 'Operating Expenses', // NEW EXPENSES ROUTE
+      path: '/expenses',
+      icon: <Receipt size={22} />,
+      roles: ['OWNER', 'WORKER']
+    },
+    {
       name: 'Sustainablity Report',
       path: '/sustainability',
       icon: <Leaf size={22} />,
-      roles: ['OWNER'] // ADMIN removed
+      roles: ['OWNER'] 
     },
     {
       name: 'Manage People',
@@ -135,7 +141,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
             )}
           </div>
           {!isCollapsed && (
-            <LogoutBtn onClick={logout}>
+            <LogoutBtn onClick={logout} title="Sign Out">
               <LogOut size={16} />
             </LogoutBtn>
           )}
