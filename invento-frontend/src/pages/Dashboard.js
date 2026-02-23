@@ -54,8 +54,8 @@ const Dashboard = () => {
             { label: "System Uptime", val: "99.9%", sub: "Simulated load", color: "#00E676", icon: <Activity/> },
             { label: "Cloud Nodes", val: "4", sub: "Regional hubs", color: "#00B0FF", icon: <Server/> }
         ] : [
-            { label: "Est. Revenue", val: "Rwf 1.4M", growth: "+12%", color: "#00B0FF", icon: <DollarSign/> },
-            { label: "Est. Profit", val: "Rwf 520k", growth: "+5%", color: "#00E676", icon: <TrendingUp/> },
+            { label: "Expt. Revenue", val: "Rwf 1.4M", growth: "+12%", color: "#00B0FF", icon: <DollarSign/> },
+            { label: "Expt. Profit", val: "Rwf 520k", growth: "+5%", color: "#00E676", icon: <TrendingUp/> },
             { label: "Active Stock", val: "842", sub: "Total Units", color: "#FF9100", icon: <Package/> }
         ];
 
@@ -210,7 +210,7 @@ const Dashboard = () => {
         <div className="grid-item span-6 bar-card">
            <div className="card-header">
               <BarChart3 size={18} color="#885AF8"/>
-              <h3>Asset Performance Velocity</h3>
+              <h3> Top Selling Products</h3>
            </div>
            <div className="performance-list">
               {data.topProducts.map((p, i) => (

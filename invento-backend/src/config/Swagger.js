@@ -8,7 +8,7 @@ const options = {
       version: '1.0.0',
       description: 'Production-ready API for managing shop inventory, profit, and actionable insights.',
     },
-    servers: [{ url: 'https://invento-xidw.onrender.com', description: 'Development Server' }],
+    servers: [{ url: 'http://localhost:5000', description: 'Development Server' }],
     components: {
       securitySchemes: {
         bearerAuth: {

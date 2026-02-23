@@ -2,9 +2,9 @@ import React, { useEffect } from 'react';
 import styled from 'styled-components';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, Package, ShoppingCart, Users, 
-  Leaf, Settings, LogOut, ChevronLeft, Menu, Shield, User 
+import {
+  LayoutDashboard, Package, ShoppingCart, Users,
+  Leaf, Settings, LogOut, ChevronLeft, Menu, Shield, User
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,41 +24,41 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
 
   // MENU CONFIGURATION - Roles updated to exclude ADMIN from Inventory/Sustainability
   const menuItems = [
-    { 
-      name: 'Overview', 
-      path: '/dashboard', 
-      icon: <LayoutDashboard size={22}/>, 
-      roles: ['ADMIN', 'OWNER', 'WORKER'] 
+    {
+      name: 'Overview',
+      path: '/dashboard',
+      icon: <LayoutDashboard size={22} />,
+      roles: ['ADMIN', 'OWNER', 'WORKER']
     },
-    { 
-      name: 'Products & Stock', 
-      path: '/inventory', 
-      icon: <Package size={22}/>, 
+    {
+      name: 'Products & Stock',
+      path: '/inventory',
+      icon: <Package size={22} />,
       roles: ['OWNER', 'WORKER'] // ADMIN removed
     },
-    { 
-      name: 'Sales Records', 
-      path: '/sales', 
-      icon: <ShoppingCart size={22}/>, 
-      roles: ['OWNER', 'WORKER'] 
+    {
+      name: 'Sales Records',
+      path: '/sales',
+      icon: <ShoppingCart size={22} />,
+      roles: ['OWNER', 'WORKER']
     },
-    { 
-      name: 'Impact Report', 
-      path: '/sustainability', 
-      icon: <Leaf size={22}/>, 
+    {
+      name: 'Sustainablity Report',
+      path: '/sustainability',
+      icon: <Leaf size={22} />,
       roles: ['OWNER'] // ADMIN removed
     },
-    { 
-      name: 'Manage People', 
-      path: '/users', 
-      icon: <Users size={22}/>, 
-      roles: ['ADMIN', 'OWNER'] 
+    {
+      name: 'Manage People',
+      path: '/users',
+      icon: <Users size={22} />,
+      roles: ['ADMIN', 'OWNER']
     },
-    { 
-      name: 'Settings', 
-      path: '/settings', 
-      icon: <Settings size={22}/>, 
-      roles: ['ADMIN', 'OWNER', 'WORKER'] 
+    {
+      name: 'Settings',
+      path: '/settings',
+      icon: <Settings size={22} />,
+      roles: ['ADMIN', 'OWNER', 'WORKER']
     },
   ];
 
@@ -74,23 +74,23 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
     <>
       <AnimatePresence>
         {!isCollapsed && window.innerWidth < 1024 && (
-          <MobileOverlay 
+          <MobileOverlay
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsCollapsed(true)} 
+            onClick={() => setIsCollapsed(true)}
           />
         )}
       </AnimatePresence>
 
       <SidebarContainer $collapsed={isCollapsed}>
         <ToggleBtn onClick={() => setIsCollapsed(!isCollapsed)}>
-          {isCollapsed ? <Menu size={14}/> : <ChevronLeft size={14}/>}
+          {isCollapsed ? <Menu size={14} /> : <ChevronLeft size={14} />}
         </ToggleBtn>
 
         {/* LOGO AREA */}
         <LogoWrapper $collapsed={isCollapsed}>
-          <motion.div 
+          <motion.div
             className="logo-box"
             animate={{ width: isCollapsed ? '50px' : '140px' }}
           >
@@ -102,9 +102,9 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
         {/* NAVIGATION */}
         <NavLinks>
           {filteredMenu.map((item) => (
-            <StyledNavLink 
-              key={item.path} 
-              to={item.path} 
+            <StyledNavLink
+              key={item.path}
+              to={item.path}
               $active={location.pathname === item.path}
               $collapsed={isCollapsed}
               onClick={() => window.innerWidth < 1024 && setIsCollapsed(true)}
@@ -124,8 +124,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
         <UserCard $collapsed={isCollapsed}>
           <div className="flex-row">
             <div className="avatar">
-               {user?.role === 'ADMIN' ? <Shield size={18}/> : <User size={18}/>}
-               <div className="status-dot" />
+              {user?.role === 'ADMIN' ? <Shield size={18} /> : <User size={18} />}
+              <div className="status-dot" />
             </div>
             {!isCollapsed && (
               <div className="meta">
@@ -136,7 +136,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
           </div>
           {!isCollapsed && (
             <LogoutBtn onClick={logout}>
-              <LogOut size={16}/>
+              <LogOut size={16} />
             </LogoutBtn>
           )}
         </UserCard>

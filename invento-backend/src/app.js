@@ -14,6 +14,7 @@ const authController = require('./controllers/authController');
 const inventoryController = require('./controllers/inventoryController');
 const transactionController = require('./controllers/transactionController');
 const insightsController = require('./controllers/insightsController');
+const expenseController = require('./controllers/expenseController'); // NEW: Imported Expense Controller
 
 // --- ROUTES ---
 const seedRoutes = require('./routes/seedRoutes');
@@ -40,7 +41,7 @@ const check = (name, fn) => {
 // Using app.use with authRoutes is better than manual registration to avoid 404s
 app.use('/api/auth', authRoutes);
 
-// 2. USER MANAGEMENT (Redundant if handled inside authRoutes, but keeping as per your structure)
+// 2. USER MANAGEMENT
 app.get('/api/users', protect, authorize('ADMIN', 'OWNER'), check('getUsers', authController.getUsers));
 app.post('/api/users', protect, authorize('ADMIN', 'OWNER'), check('createUser', authController.createUser));
 app.delete('/api/users/:id', protect, authorize('ADMIN', 'OWNER'), check('deleteUser', authController.deleteUser));
@@ -69,6 +70,13 @@ app.get('/api/sales/report/detailed', protect, check('getDetailedReport', transa
 // 6. SYSTEM TOOLS
 app.use('/api/system', seedRoutes);
 
+// 7. EXPENSES & FINANCIALS (NEW MODULE)
+// Workers can log expenses (e.g. paying for shop utilities), but only Owners can delete them.
+app.post('/api/expenses', protect, authorize('OWNER', 'WORKER'), check('createExpense', expenseController.createExpense));
+app.get('/api/expenses', protect, check('getExpenses', expenseController.getExpenses));
+app.put('/api/expenses/:id', protect, authorize('OWNER', 'WORKER'), check('updateExpense', expenseController.updateExpense));
+app.delete('/api/expenses/:id', protect, authorize('OWNER'), check('deleteExpense', expenseController.deleteExpense));
+
 // --- DB CONNECTION & START ---
 mongoose.set('strictQuery', false);
 mongoose.connect(process.env.MONGO_URI)
@@ -79,7 +87,7 @@ mongoose.connect(process.env.MONGO_URI)
         } catch (e) {
             console.log('ℹ️ Seeding Note:', e.message);
         }
-        app.listen(5000, () => console.log('🚀 Server running on https://invento-xidw.onrender.com'));
+        app.listen(5000, () => console.log('🚀 Server running on http://localhost:5000'));
     })
     .catch(err => {
         console.error('❌ MongoDB Connection Error:', err);

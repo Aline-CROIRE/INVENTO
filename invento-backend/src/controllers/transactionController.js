@@ -2,11 +2,14 @@ const Transaction = require('../models/Transaction');
 const Product = require('../models/Product');
 const Batch = require('../models/Batch');
 const Shop = require('../models/Shop');
+const Expense = require('../models/Expense'); // Integrated Expense Model
 const mongoose = require('mongoose');
+
+const VAT_RATE = 0.15; // 15% Exclusive VAT (Added on top of soldPrice)
 
 /**
  * 1. CREATE TRANSACTION (Standard POS Entry)
- * Synchronized with fifo batch deduction and financial sub-docs.
+ * Synchronized with FIFO batch deduction and advanced financial sub-docs.
  */
 exports.createTransaction = async (req, res) => {
   const { items, packagingWaste } = req.body; 
@@ -18,8 +21,10 @@ exports.createTransaction = async (req, res) => {
     const shop = await Shop.findOne({ $or: [{ ownerId: userId }, { managerId: userId }] }).session(session);
     if (!shop) throw new Error("Shop context not found.");
 
-    let totalRevenue = 0;
+    let totalRevenue = 0; // Excludes VAT
     let totalCOGS = 0;
+    let totalVatCollected = 0;
+    let totalGrossProfit = 0;
     const lineItems = [];
 
     for (const item of items) {
@@ -47,9 +52,15 @@ exports.createTransaction = async (req, res) => {
         remainingToDeduct -= deduction;
       }
 
+      // Financial Math (Line Item Level)
       const itemRevenue = Number(item.soldPrice) * Number(item.quantity);
+      const itemVAT = itemRevenue * VAT_RATE; // Exclusive VAT calculation
+      const itemGrossProfit = itemRevenue - itemTotalCost;
+
       totalRevenue += itemRevenue;
       totalCOGS += itemTotalCost;
+      totalVatCollected += itemVAT;
+      totalGrossProfit += itemGrossProfit;
 
       lineItems.push({
         productId: item.productId,
@@ -59,6 +70,8 @@ exports.createTransaction = async (req, res) => {
         quantity: item.quantity,
         soldPrice: item.soldPrice,
         purchaseCost: itemTotalCost,
+        vatCollected: itemVAT,
+        grossProfit: itemGrossProfit,
         packagingWaste: packagingWaste || 0
       });
 
@@ -73,8 +86,8 @@ exports.createTransaction = async (req, res) => {
       financials: {
         totalRevenue,
         totalCOGS,
-        netProfit: totalRevenue - totalCOGS,
-        tax: totalRevenue * 0.15 
+        totalVatCollected,
+        grossProfit: totalGrossProfit // Replaced netProfit with grossProfit at the transaction level
       },
       committedAt: new Date()
     }], { session });
@@ -92,41 +105,51 @@ exports.createTransaction = async (req, res) => {
 
 /**
  * 2. GET SALES REPORT (Standard Ledger)
- * Syncs Profit by subtracting current month's waste.
+ * Calculates True Net Profit by subtracting Expired Loss and Operating Expenses.
  */
 exports.getReport = async (req, res) => {
   try {
-    const { month, year, scope } = req.query;
+    const { month, year } = req.query;
     const shop = await Shop.findOne({ ownerId: req.user._id });
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59);
 
-    const [transactions, batches] = await Promise.all([
+    const [transactions, batches, expenses] = await Promise.all([
       Transaction.find({ shopId: shop._id, status: 'COMMITTED', committedAt: { $gte: start, $lte: end } }).populate('sellerId', 'name').sort({ committedAt: -1 }),
-      Batch.find({ shopId: shop._id })
+      Batch.find({ shopId: shop._id }),
+      Expense.find({ shopId: shop._id, date: { $gte: start, $lte: end }, status: { $in: ['PAID', 'APPROVED'] } })
     ]);
 
     const totalRevenue = transactions.reduce((acc, t) => acc + t.financials.totalRevenue, 0);
-    const grossProfit = transactions.reduce((acc, t) => acc + t.financials.netProfit, 0);
+    const totalGrossProfit = transactions.reduce((acc, t) => acc + t.financials.grossProfit, 0);
     
     const expiredLoss = batches
       .filter(b => b.quantity > 0 && new Date(b.expiryDate) >= start && new Date(b.expiryDate) <= end)
       .reduce((acc, b) => acc + (b.purchasePrice * b.quantity), 0);
+
+    const totalOperatingExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+
+    // TRUE NET PROFIT FORMULA
+    const trueNetProfit = totalGrossProfit - expiredLoss - totalOperatingExpenses;
 
     const timelineMap = {};
     transactions.forEach(t => {
       const dateKey = new Date(t.committedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (!timelineMap[dateKey]) timelineMap[dateKey] = { date: dateKey, revenue: 0, profit: 0 };
       timelineMap[dateKey].revenue += t.financials.totalRevenue;
-      timelineMap[dateKey].profit += t.financials.netProfit;
+      timelineMap[dateKey].profit += t.financials.grossProfit; // Map displays Gross Profit over time
     });
 
     res.json({
       totalRevenue,
-      totalProfit: grossProfit - expiredLoss, 
+      totalGrossProfit,
+      totalOperatingExpenses,
+      expiredLoss,
+      totalProfit: trueNetProfit, // Re-mapped to standard API response name for frontend compatibility
       transactions,
+      expenses,
       chartData: Object.values(timelineMap)
     });
   } catch (error) {
@@ -136,7 +159,7 @@ exports.getReport = async (req, res) => {
 
 /**
  * 3. BULK IMPORT SALES
- * Handles historical CSV data migration into the Transaction model.
+ * Handles historical CSV data migration into the updated Transaction model.
  */
 exports.bulkImportSales = async (req, res) => {
   const { transactions } = req.body; 
@@ -146,22 +169,32 @@ exports.bulkImportSales = async (req, res) => {
     const shop = await Shop.findOne({ ownerId });
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
-    const formattedData = transactions.map(t => ({
-      shopId: shop._id,
-      sellerId: ownerId,
-      lineItems: [{ 
-        name: t.productName || "Imported Data", 
-        quantity: t.quantity || 1, 
-        soldPrice: Number(t.revenue), 
-        purchaseCost: Number(t.revenue) - Number(t.profit) 
-      }],
-      financials: {
-        totalRevenue: Number(t.revenue),
-        totalCOGS: Number(t.revenue) - Number(t.profit),
-        netProfit: Number(t.profit),
-      },
-      committedAt: t.date ? new Date(t.date) : new Date()
-    }));
+    const formattedData = transactions.map(t => {
+      const revenue = Number(t.revenue);
+      const profit = Number(t.profit); // Historically this was Gross Profit
+      const cogs = revenue - profit;
+      const vat = revenue * VAT_RATE;
+
+      return {
+        shopId: shop._id,
+        sellerId: ownerId,
+        lineItems: [{ 
+          name: t.productName || "Imported Data", 
+          quantity: t.quantity || 1, 
+          soldPrice: revenue, 
+          purchaseCost: cogs,
+          vatCollected: vat,
+          grossProfit: profit
+        }],
+        financials: {
+          totalRevenue: revenue,
+          totalCOGS: cogs,
+          totalVatCollected: vat,
+          grossProfit: profit,
+        },
+        committedAt: t.date ? new Date(t.date) : new Date()
+      };
+    });
 
     await Transaction.insertMany(formattedData);
     res.status(201).json({ message: "Import Successful", count: formattedData.length });
@@ -171,7 +204,7 @@ exports.bulkImportSales = async (req, res) => {
 };
 
 /**
- * 4. GET DETAILED BI REPORT (Sustainability)
+ * 4. GET DETAILED BI REPORT (Financials & Expenses)
  */
 exports.getDetailedReport = async (req, res) => {
   try {
@@ -181,31 +214,58 @@ exports.getDetailedReport = async (req, res) => {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59);
 
-    const [transactions, batches] = await Promise.all([
+    const [transactions, batches, expenses] = await Promise.all([
       Transaction.find({ shopId: shop._id, committedAt: { $gte: start, $lte: end }, status: 'COMMITTED' }),
-      Batch.find({ shopId: shop._id })
+      Batch.find({ shopId: shop._id }),
+      Expense.find({ shopId: shop._id, date: { $gte: start, $lte: end }, status: { $in: ['PAID', 'APPROVED'] } })
     ]);
 
     const totalRevenue = transactions.reduce((acc, t) => acc + t.financials.totalRevenue, 0);
-    const grossProfit = transactions.reduce((acc, t) => acc + t.financials.netProfit, 0);
+    const totalGrossProfit = transactions.reduce((acc, t) => acc + t.financials.grossProfit, 0);
+    const totalVatCollected = transactions.reduce((acc, t) => acc + (t.financials.totalVatCollected || 0), 0);
+    
     const expiredLoss = batches
       .filter(b => b.quantity > 0 && new Date(b.expiryDate) >= start && new Date(b.expiryDate) <= end)
       .reduce((acc, b) => acc + (b.purchasePrice * b.quantity), 0);
+
+    const totalOperatingExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
+    const trueNetProfit = totalGrossProfit - expiredLoss - totalOperatingExpenses;
 
     const categoryMap = {};
     transactions.forEach(t => {
       t.lineItems.forEach(item => {
         const cat = item.category || 'General';
-        if (!categoryMap[cat]) categoryMap[cat] = { name: cat, profit: 0, waste: 0 };
-        categoryMap[cat].profit += (item.soldPrice * item.quantity) - item.purchaseCost;
+        if (!categoryMap[cat]) categoryMap[cat] = { name: cat, profit: 0, revenue: 0 };
+        categoryMap[cat].revenue += (item.soldPrice * item.quantity);
+        categoryMap[cat].profit += item.grossProfit;
       });
     });
 
+    const expenseBreakdown = {};
+    expenses.forEach(e => {
+      if (!expenseBreakdown[e.category]) expenseBreakdown[e.category] = { name: e.category, amount: 0 };
+      expenseBreakdown[e.category].amount += e.amount;
+    });
+
+    let primaryInsight = "Resource flow is optimal.";
+    if (expiredLoss > 0) primaryInsight = "Inventory waste detected. Review stock rotation.";
+    if (totalOperatingExpenses > totalGrossProfit) primaryInsight = "Warning: Operating expenses currently exceed Gross Profit.";
+
     res.json({
-      summary: { totalRevenue, netProfit: grossProfit - expiredLoss, expiredLoss, grossMargin: totalRevenue > 0 ? (((grossProfit - expiredLoss)/totalRevenue)*100).toFixed(1) : 0 },
+      summary: { 
+        totalRevenue, 
+        totalVatCollected,
+        totalOperatingExpenses,
+        expiredLoss,
+        grossProfit: totalGrossProfit,
+        netProfit: trueNetProfit, 
+        grossMargin: totalRevenue > 0 ? ((totalGrossProfit / totalRevenue) * 100).toFixed(1) : 0,
+        netMargin: totalRevenue > 0 ? ((trueNetProfit / totalRevenue) * 100).toFixed(1) : 0
+      },
       categoryData: Object.values(categoryMap),
+      expenseBreakdown: Object.values(expenseBreakdown),
       timeline: transactions.map(t => ({ date: new Date(t.committedAt).getDate(), revenue: t.financials.totalRevenue })),
-      insights: [{ message: expiredLoss > 0 ? "Inventory waste detected. Review stock rotation." : "Resource flow is optimal." }]
+      insights: [{ message: primaryInsight }]
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

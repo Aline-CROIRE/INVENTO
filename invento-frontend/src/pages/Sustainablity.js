@@ -156,13 +156,13 @@ export default function Sustainability() {
         </MetricCard>
 
         <MetricCard $color={COLORS.waste}>
-          <div className="card-top"><label>Resource Leakage</label><AlertTriangle size={18} color={COLORS.waste} /></div>
+          <div className="card-top"><label> Value of Expired Products</label><AlertTriangle size={18} color={COLORS.waste} /></div>
           <div className="card-val"><small>Rwf</small> {data.wasteLoss.toLocaleString()}</div>
           <div className="card-sub">Capital lost to expiration</div>
         </MetricCard>
 
         <MetricCard $color={COLORS.revenue}>
-          <div className="card-top"><label>Net Recovered Value</label><ShieldCheck size={18} color={COLORS.revenue} /></div>
+          <div className="card-top"><label>Real Profit</label><ShieldCheck size={18} color={COLORS.revenue} /></div>
           <div className="card-val"><small>Rwf</small> {data.netProfit.toLocaleString()}</div>
           <div className="card-sub">Liquid profit after waste</div>
         </MetricCard>
@@ -210,7 +210,7 @@ export default function Sustainability() {
         {/* INSIGHT CARD */}
         <StrategyCard className="span-4">
           <div className="icon-box"><Zap size={24} color="#FFD600" fill="#FFD600" /></div>
-          <h4>Strategic Pulse</h4>
+          <h4>Sustainablity Advice</h4>
           <p className="narrative">{data.insight}</p>
           <div className="advice">
             <Target size={14} color={COLORS.profit} />
@@ -225,7 +225,7 @@ export default function Sustainability() {
         {/* CHART: BAR CATEGORY */}
         <ContentCard className="span-6">
           <div className="card-header">
-            <h3>Sector-wise Leakage</h3>
+            <h3>Products Expiration By Category</h3>
             <BarChart3 size={18} color={COLORS.waste} />
           </div>
           <div className="canvas-sm">
@@ -250,7 +250,7 @@ export default function Sustainability() {
             <ResponsiveContainer width="100%" height={240}>
               <RePie>
                 <Pie
-                  data={[{ name: 'Yield', value: data.netProfit }, { name: 'Loss', value: data.wasteLoss }]}
+                  data={[{ name: 'Profit', value: data.netProfit }, { name: 'Loss', value: data.wasteLoss }]}
                   innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none"
                 >
                   <Cell fill={COLORS.profit} /><Cell fill={COLORS.waste} />
