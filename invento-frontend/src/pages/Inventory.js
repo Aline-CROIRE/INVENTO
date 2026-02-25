@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 
-// Assume Modals are imported from your components folder
 import StockInModal from '../components/Inventory/StockInModal';
 import EditProductModal from '../components/Inventory/EditProductModal';
 import ProductDetailsModal from '../components/Inventory/ProductDetailsModal';
@@ -41,9 +40,9 @@ export default function Inventory() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     if (isDemoMode) {
-        setRealData(INV_BASELINE);
-        setLoading(false);
-        return;
+      setRealData(INV_BASELINE);
+      setLoading(false);
+      return;
     }
     try {
       const res = await api.get('/inventory');
@@ -70,7 +69,7 @@ export default function Inventory() {
     const outOfStock = list.filter(p => p.totalStock === 0).length;
     let assetValue = realData.metrics?.totalAssetValue || 0;
     if (!realData.metrics || isDemoMode) {
-        assetValue = list.reduce((acc, p) => acc + (p.totalStock * (p.price || 0)), 0);
+      assetValue = list.reduce((acc, p) => acc + (p.totalStock * (p.price || 0)), 0);
     }
     return { totalAssetValue: assetValue, outOfStockCount: outOfStock };
   }, [filteredProducts, realData.metrics, isDemoMode]);
@@ -80,61 +79,60 @@ export default function Inventory() {
 
   return (
     <PageLayout>
-      {/* 1. TOP NAVBAR */}
       <TopNav>
         <div className="brand">
-          <Database size={28} color="#00D1FF" />
+          <Database size={24} color="#00D1FF" />
           <div className="text">
             <h1>Stock<span>Registry</span></h1>
             <p>v4.0.2 Stable</p>
           </div>
         </div>
 
-        <ModeSwitch $isDemo={isDemoMode} onClick={() => setIsDemoMode(!isDemoMode)}>
-          <div className="slider" />
-          <span className="live"><Zap size={12} /> Live</span>
-          <span className="demo"><Activity size={12} /> Demo</span>
-        </ModeSwitch>
+        <div className="nav-controls">
+          <ModeSwitch $isDemo={isDemoMode} onClick={() => setIsDemoMode(!isDemoMode)}>
+            <div className="slider" />
+            <span className="live"><Zap size={12} /> Live</span>
+            <span className="demo"><Activity size={12} /> Demo</span>
+          </ModeSwitch>
 
-        <div className="actions">
-          <NavBtn onClick={() => setIsImportOpen(true)} title="Export CSV"><Download size={18}/></NavBtn>
-          <PrimaryBtn onClick={() => setIsStockInOpen(true)} className="desktop-only">
-            <Plus size={18} /> New Asset
-          </PrimaryBtn>
+          <div className="actions desktop-only">
+            <NavBtn onClick={() => setIsImportOpen(true)} title="Export CSV"><Download size={18}/></NavBtn>
+            <PrimaryBtn onClick={() => setIsStockInOpen(true)}>
+              <Plus size={18} /> New Asset
+            </PrimaryBtn>
+          </div>
         </div>
       </TopNav>
 
-      {/* 2. METRICS PANEL */}
       <MetricsStrip>
         <MCard color="#00D1FF">
-          <ShieldCheck size={20} />
-          <div>
+          <ShieldCheck size={24} />
+          <div className="info">
             <label>Current Asset Value</label>
             <h3>Rwf {activeMetrics.totalAssetValue.toLocaleString()}</h3>
           </div>
         </MCard>
         <MCard color={activeMetrics.outOfStockCount > 0 ? "#FF3B6B" : "#00FFA3"}>
-          <AlertCircle size={20} />
-          <div>
+          <AlertCircle size={24} />
+          <div className="info">
             <label>System Alerts</label>
             <h3>{activeMetrics.outOfStockCount} Depleted Items</h3>
           </div>
         </MCard>
-        <MCard color="#00FFA3" className="desktop-only">
-          <TrendingUp size={20} />
-          <div>
+        <MCard color="#00FFA3" className="hide-sm">
+          <TrendingUp size={24} />
+          <div className="info">
             <label>Inventory Flow</label>
             <h3>Healthy (82%)</h3>
           </div>
         </MCard>
       </MetricsStrip>
 
-      {/* 3. SEARCH & FILTERS */}
       <FilterSection>
         <SearchContainer>
-          <Search size={18} color="#64748b" />
+          <Search size={18} color="#64748b" className="search-icon" />
           <input 
-            placeholder="Search by SKU, Serial or Name..." 
+            placeholder="Search SKU or Name..." 
             value={search} 
             onChange={e => setSearch(e.target.value)} 
           />
@@ -145,36 +143,36 @@ export default function Inventory() {
             <FilterPill 
               key={cat} 
               active={categoryFilter === cat} 
-              onClick={() => setCategoryFilter(cat)}
+              onClick={() => { setCategoryFilter(cat); setCurrentPage(1); }}
             >
               {cat}
             </FilterPill>
           ))}
-          <RefreshBtn onClick={fetchData} loading={loading ? 1 : 0}>
+          <RefreshBtn onClick={fetchData} className={loading ? 'spin' : ''}>
              <RefreshCcw size={16} />
           </RefreshBtn>
         </PillContainer>
       </FilterSection>
 
-      {/* 4. DATA VIEWPORT */}
       <DataPane>
         <AnimatePresence mode="wait">
           {loading ? (
-            <LoadingState key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <Loader className="spin" size={40} color="#00D1FF" />
+            <LoadingState key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <Loader className="spin-loader" size={40} color="#00D1FF" />
               <p>Synchronizing Registry...</p>
             </LoadingState>
           ) : (
-            <motion.div key="table" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div key="table" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              
               {/* DESKTOP TABLE */}
               <TableWrapper>
                 <Table>
                   <thead>
                     <tr>
                       <th>Product Identity</th>
-                      <th className="hide-sm">Category</th>
+                      <th>Category</th>
                       <th>Quantity</th>
-                      <th className="hide-md">Status</th>
+                      <th>Status</th>
                       <th align="right">Manage</th>
                     </tr>
                   </thead>
@@ -187,13 +185,13 @@ export default function Inventory() {
                             <div className="name">{p.name}</div>
                           </AssetCell>
                         </td>
-                        <td className="hide-sm"><CatTag>{p.category}</CatTag></td>
+                        <td><CatTag>{p.category}</CatTag></td>
                         <td>
                           <StockCount $isLow={p.totalStock === 0}>
                             {p.totalStock} <span>{p.unit}</span>
                           </StockCount>
                         </td>
-                        <td className="hide-md">
+                        <td>
                           <StatusBadge $type={p.totalStock === 0 ? 'out' : 'ok'}>
                             {p.totalStock === 0 ? 'Depleted' : 'Operational'}
                           </StatusBadge>
@@ -207,11 +205,14 @@ export default function Inventory() {
                         </td>
                       </tr>
                     ))}
+                    {paginated.length === 0 && (
+                      <tr><td colSpan="5" align="center" style={{padding: '3rem', color: '#64748b'}}>No assets found.</td></tr>
+                    )}
                   </tbody>
                 </Table>
               </TableWrapper>
 
-              {/* MOBILE CARDS (Hidden on Desktop) */}
+              {/* MOBILE CARDS */}
               <MobileGrid>
                 {paginated.map(p => (
                   <AssetCard key={p._id}>
@@ -224,19 +225,26 @@ export default function Inventory() {
                        <div className="item"><label>Category</label><span>{p.category}</span></div>
                     </div>
                     <div className="foot">
-                       <button className="full-btn" onClick={() => setViewProduct(p)}>Inspect Asset</button>
+                       <button className="view-btn" onClick={() => setViewProduct(p)}>Inspect Asset</button>
+                       <div className="quick-actions">
+                         <button onClick={() => setEditProduct(p)} className="edit"><Edit2 size={16}/></button>
+                         <button className="del"><Trash2 size={16}/></button>
+                       </div>
                     </div>
                   </AssetCard>
                 ))}
+                {paginated.length === 0 && (
+                   <div style={{textAlign: 'center', padding: '2rem', color: '#64748b'}}>No assets found.</div>
+                )}
               </MobileGrid>
+
             </motion.div>
           )}
         </AnimatePresence>
       </DataPane>
 
-      {/* 5. PAGINATION */}
       <Pagination>
-        <p>Displaying {paginated.length} of {filteredProducts.length} assets</p>
+        <p>Displaying {paginated.length} of {filteredProducts.length}</p>
         <div className="nav">
           <NavPage disabled={currentPage === 1} onClick={() => setCurrentPage(c => c-1)}><ChevronLeft size={20}/></NavPage>
           <div className="page-info">{currentPage} / {totalPages}</div>
@@ -245,10 +253,9 @@ export default function Inventory() {
       </Pagination>
 
       <FloatingBtn onClick={() => setIsStockInOpen(true)}>
-        <Plus size={32} color="white" />
+        <Plus size={28} color="#000" />
       </FloatingBtn>
 
-      {/* Modals placeholders */}
       {isStockInOpen && <StockInModal onClose={() => setIsStockInOpen(false)} onRefresh={fetchData} />}
       {isImportOpen && <ImportCSVModal onClose={() => setIsImportOpen(false)} onRefresh={fetchData} />}
       {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} onRefresh={fetchData} />}
@@ -257,7 +264,7 @@ export default function Inventory() {
   );
 }
 
-// --- STYLED COMPONENTS (RESPONSIVE FOCUS) ---
+// --- STYLED COMPONENTS ---
 
 const PageLayout = styled.div`
   min-height: 100vh;
@@ -265,20 +272,43 @@ const PageLayout = styled.div`
   color: #fff;
   padding: 1rem;
   font-family: 'Inter', sans-serif;
-  max-width: 1440px;
-  margin: 0 auto;
-  @media (min-width: 1024px) { padding: 2rem; }
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden; /* Critical for stopping horizontal scroll */
+
+  @media (min-width: 768px) { padding: 1.5rem; }
+  @media (min-width: 1024px) { padding: 2.5rem; max-width: 1400px; margin: 0 auto; }
+  
+  *, *::before, *::after { box-sizing: border-box; }
 `;
 
 const TopNav = styled.nav`
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; 
+  flex-direction: column;
+  align-items: flex-start;
   margin-bottom: 2rem;
-  gap: 1rem;
+  gap: 1.2rem;
+  width: 100%;
+
+  @media (min-width: 600px) {
+    flex-direction: row;
+    justify-content: space-between; 
+    align-items: center;
+  }
 
   .brand {
-    display: flex; align-items: center; gap: 12px;
-    h1 { font-size: 1.2rem; margin: 0; font-weight: 900; span { color: #00D1FF; } }
-    p { margin: 0; font-size: 0.7rem; color: #475569; letter-spacing: 1px; }
+    display: flex; align-items: center; gap: 10px;
+    h1 { font-size: 1.3rem; margin: 0; font-weight: 900; letter-spacing: -0.5px; span { color: #00D1FF; } }
+    p { margin: 0; font-size: 0.7rem; color: #64748b; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  }
+
+  .nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    @media (min-width: 600px) { width: auto; }
   }
 
   .actions { display: flex; gap: 10px; }
@@ -286,19 +316,19 @@ const TopNav = styled.nav`
 `;
 
 const ModeSwitch = styled.div`
-  background: #0F172A; border: 1px solid #1E293B; border-radius: 50px;
-  width: 140px; height: 38px; display: flex; align-items: center;
-  position: relative; cursor: pointer; padding: 4px;
+  background: rgba(15, 23, 42, 0.6); border: 1px solid #1E293B; border-radius: 50px;
+  width: 130px; height: 36px; display: flex; align-items: center;
+  position: relative; cursor: pointer; padding: 4px; flex-shrink: 0;
 
   .slider {
-    position: absolute; width: 66px; height: 30px; background: #00D1FF;
+    position: absolute; width: 60px; height: 28px; background: #00D1FF;
     border-radius: 40px; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    left: ${p => p.$isDemo ? '70px' : '4px'};
+    left: ${p => p.$isDemo ? '65px' : '4px'};
     box-shadow: 0 0 15px rgba(0, 209, 255, 0.4);
   }
 
   span {
-    flex: 1; z-index: 1; font-size: 0.65rem; font-weight: 800;
+    flex: 1; z-index: 1; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
     text-align: center; display: flex; align-items: center; justify-content: center; gap: 4px;
     color: #94A3B8; transition: 0.3s;
   }
@@ -308,103 +338,117 @@ const ModeSwitch = styled.div`
 
 const NavBtn = styled.button`
   background: #0F172A; border: 1px solid #1E293B; color: #fff;
-  width: 42px; height: 42px; border-radius: 10px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: 0.2s;
+  &:hover { background: #1e293b; color: #00D1FF; }
 `;
 
 const PrimaryBtn = styled.button`
-  background: #00D1FF; color: #000; border: none; padding: 0 1.2rem;
-  border-radius: 10px; font-weight: 800; font-size: 0.85rem; height: 42px;
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  background: #00D1FF; color: #000; border: none; padding: 0 1rem;
+  border-radius: 12px; font-weight: 800; font-size: 0.8rem; height: 40px;
+  display: flex; align-items: center; gap: 8px; cursor: pointer; transition: 0.2s;
+  &:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 209, 255, 0.3); }
 `;
 
 const MetricsStrip = styled.div`
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;
+  display: grid; 
+  grid-template-columns: 1fr; /* Strict stack on mobile */
+  gap: 1rem;
   margin-bottom: 2rem;
-  @media (min-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
-`;
-
-const MCard = styled.div`
-  background: #0F172A; border: 1px solid #1E293B; border-left: 4px solid ${p => p.color};
-  padding: 1.2rem; border-radius: 12px; display: flex; align-items: center; gap: 1rem;
-
-  svg { color: ${p => p.color}; }
-  label { display: block; font-size: 0.65rem; color: #64748B; text-transform: uppercase; font-weight: 800; }
-  h3 { margin: 0; font-size: 1.1rem; color: #fff; }
-
-  @media (max-width: 600px) {
-    padding: 0.8rem;
-    h3 { font-size: 0.9rem; }
+  width: 100%;
+  
+  @media (min-width: 600px) {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
+  }
+  
+  .hide-sm {
+    @media (max-width: 850px) { display: none; }
   }
 `;
 
+const MCard = styled.div`
+  background: rgba(15, 23, 42, 0.4); border: 1px solid #1E293B; border-left: 4px solid ${p => p.color};
+  padding: 1.2rem; border-radius: 16px; display: flex; align-items: center; gap: 1rem;
+  width: 100%;
+
+  svg { color: ${p => p.color}; flex-shrink: 0; }
+  .info { flex: 1; min-width: 0; }
+  label { display: block; font-size: 0.65rem; color: #64748B; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+  h3 { margin: 4px 0 0 0; font-size: 1.2rem; font-weight: 900; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+`;
+
 const FilterSection = styled.div`
-  display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;
-  @media (min-width: 1024px) { flex-direction: row; justify-content: space-between; align-items: center; }
+  display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; width: 100%;
+  @media (min-width: 850px) { flex-direction: row; justify-content: space-between; align-items: center; }
 `;
 
 const SearchContainer = styled.div`
   background: #0F172A; border: 1px solid #1E293B; border-radius: 12px;
-  display: flex; align-items: center; padding: 0 1rem; height: 48px;
-  flex: 1; max-width: 400px;
-  input { background: none; border: none; color: #fff; margin-left: 10px; width: 100%; outline: none; }
+  display: flex; align-items: center; padding: 0 1rem; height: 46px;
+  width: 100%;
+  @media (min-width: 850px) { max-width: 350px; }
+  
+  .search-icon { flex-shrink: 0; }
+  input { background: none; border: none; color: #fff; margin-left: 10px; width: 100%; outline: none; font-size: 0.85rem; }
 `;
 
 const PillContainer = styled.div`
   display: flex; align-items: center; gap: 8px; overflow-x: auto;
-  padding-bottom: 4px; &::-webkit-scrollbar { display: none; }
+  padding-bottom: 4px; width: 100%;
+  &::-webkit-scrollbar { display: none; }
+  -ms-overflow-style: none; scrollbar-width: none; 
 `;
 
 const FilterPill = styled.button`
-  background: ${p => p.active ? '#00D1FF' : '#0F172A'};
+  background: ${p => p.active ? '#00D1FF' : 'rgba(15, 23, 42, 0.6)'};
   color: ${p => p.active ? '#000' : '#94A3B8'};
   border: 1px solid ${p => p.active ? '#00D1FF' : '#1E293B'};
-  padding: 8px 16px; border-radius: 50px; font-size: 0.75rem; font-weight: 700;
-  white-space: nowrap; cursor: pointer; transition: 0.2s;
+  padding: 8px 16px; border-radius: 50px; font-size: 0.7rem; font-weight: 800;
+  white-space: nowrap; cursor: pointer; transition: 0.2s; flex-shrink: 0;
+  &:hover { background: ${p => p.active ? '#00D1FF' : '#1E293B'}; color: ${p => p.active ? '#000' : '#fff'}; }
 `;
 
 const RefreshBtn = styled.button`
-  background: none; border: none; color: #475569; cursor: pointer;
-  .spin { animation: spin 1s linear infinite; }
+  background: none; border: none; color: #475569; cursor: pointer; padding: 8px; flex-shrink: 0;
+  transition: 0.2s; &:hover { color: #fff; }
+  &.spin { animation: spin 1s linear infinite; }
   @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `;
 
-const DataPane = styled.div` min-height: 400px; `;
+const DataPane = styled.div` min-height: 400px; width: 100%; `;
 
 const TableWrapper = styled.div`
   display: none;
-  @media (min-width: 1024px) { 
-    display: block; background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; overflow: hidden;
+  @media (min-width: 850px) { 
+    display: block; background: rgba(15, 23, 42, 0.4); border: 1px solid #1E293B; border-radius: 20px; overflow: hidden;
   }
 `;
 
 const Table = styled.table`
   width: 100%; border-collapse: collapse;
-  th { text-align: left; padding: 1.2rem; font-size: 0.7rem; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #1E293B; }
-  td { padding: 1.2rem; border-bottom: 1px solid #1E293B; }
+  th { text-align: left; padding: 1.2rem 1.5rem; font-size: 0.7rem; font-weight: 800; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #1E293B; letter-spacing: 0.5px; }
+  td { padding: 1.2rem 1.5rem; border-bottom: 1px solid rgba(30, 41, 59, 0.5); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
   tr:hover { background: rgba(255,255,255,0.02); }
-
-  .hide-sm { @media (max-width: 1150px) { display: none; } }
-  .hide-md { @media (max-width: 1300px) { display: none; } }
 `;
 
 const AssetCell = styled.div`
-  .code { color: #00D1FF; font-size: 0.7rem; font-family: monospace; }
-  .name { font-weight: 700; color: #fff; }
+  .code { color: #00D1FF; font-size: 0.65rem; font-family: monospace; font-weight: 600; margin-bottom: 4px; }
+  .name { font-weight: 700; color: #fff; font-size: 0.9rem; }
 `;
 
 const CatTag = styled.span`
   background: rgba(148, 163, 184, 0.1); color: #94A3B8;
-  padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+  padding: 6px 12px; border-radius: 8px; font-size: 0.7rem; font-weight: 700;
 `;
 
 const StockCount = styled.div`
   font-weight: 900; font-size: 1.1rem; color: ${p => p.$isLow ? '#FF3B6B' : '#fff'};
-  span { font-size: 0.7rem; color: #64748B; font-weight: 400; }
+  span { font-size: 0.7rem; color: #64748B; font-weight: 600; margin-left: 4px;}
 `;
 
 const StatusBadge = styled.span`
-  padding: 4px 12px; border-radius: 50px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase;
+  padding: 6px 12px; border-radius: 50px; font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px;
   background: ${p => p.$type === 'out' ? 'rgba(255, 59, 107, 0.1)' : 'rgba(0, 255, 163, 0.1)'};
   color: ${p => p.$type === 'out' ? '#FF3B6B' : '#00FFA3'};
 `;
@@ -412,52 +456,63 @@ const StatusBadge = styled.span`
 const ActionGroup = styled.div`
   display: flex; gap: 8px; justify-content: flex-end;
   button {
-    width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer;
-    background: #1E293B; color: #94A3B8; display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 10px; border: none; cursor: pointer;
+    background: #1E293B; color: #94A3B8; display: flex; align-items: center; justify-content: center; transition: 0.2s;
     &:hover { color: #fff; background: #334155; }
-    &.del:hover { color: #FF3B6B; }
+    &.del:hover { color: #FF3B6B; background: rgba(255, 59, 107, 0.1); }
   }
 `;
 
 const MobileGrid = styled.div`
-  display: flex; flex-direction: column; gap: 1rem;
-  @media (min-width: 1024px) { display: none; }
+  display: flex; flex-direction: column; gap: 1rem; width: 100%;
+  @media (min-width: 850px) { display: none; }
 `;
 
 const AssetCard = styled.div`
-  background: #0F172A; border: 1px solid #1E293B; border-radius: 16px; padding: 1.2rem;
-  .head { display: flex; justify-content: space-between; margin-bottom: 1rem; 
-    strong { display: block; font-size: 1rem; } 
-    code { color: #00D1FF; font-size: 0.75rem; } }
-  .body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-top: 1px solid #1E293B; padding-top: 1rem;
-    label { display: block; font-size: 0.6rem; color: #475569; text-transform: uppercase; }
-    span { font-weight: 700; } }
-  .foot { margin-top: 1rem; .full-btn { width: 100%; height: 40px; border-radius: 8px; background: #1E293B; border: none; color: #fff; font-weight: 700; } }
+  background: rgba(15, 23, 42, 0.4); border: 1px solid #1E293B; border-radius: 16px; padding: 1.2rem; width: 100%;
+  .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.2rem; 
+    strong { display: block; font-size: 1rem; font-weight: 800; margin-bottom: 4px; } 
+    code { color: #00D1FF; font-size: 0.7rem; font-family: monospace; font-weight: 600; } }
+  .body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 12px; margin-bottom: 1.2rem;
+    label { display: block; font-size: 0.6rem; color: #64748B; text-transform: uppercase; font-weight: 800; margin-bottom: 4px; }
+    span { font-weight: 800; font-size: 0.9rem; } }
+  .foot { display: flex; gap: 10px; 
+    .view-btn { flex: 1; height: 42px; border-radius: 10px; background: #1E293B; border: none; color: #fff; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: 0.2s; &:hover { background: #334155; } }
+    .quick-actions { display: flex; gap: 8px; 
+      button { width: 42px; height: 42px; border-radius: 10px; border: none; background: #1E293B; color: #94A3B8; display: flex; align-items: center; justify-content: center; cursor: pointer;
+        &.del { color: #FF3B6B; background: rgba(255, 59, 107, 0.1); } }
+    }
+  }
 `;
 
 const Pagination = styled.div`
-  margin-top: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
+  margin-top: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1rem; width: 100%;
   @media (min-width: 768px) { flex-direction: row; justify-content: space-between; }
-  p { color: #64748B; font-size: 0.85rem; }
-  .nav { display: flex; align-items: center; gap: 1rem; }
-  .page-info { font-weight: 800; font-family: monospace; font-size: 1rem; color: #00D1FF; }
+  p { color: #64748B; font-size: 0.8rem; font-weight: 600;}
+  .nav { display: flex; align-items: center; gap: 10px; }
+  .page-info { font-weight: 800; font-family: monospace; font-size: 1rem; color: #00D1FF; background: #0F172A; padding: 6px 14px; border-radius: 10px; border: 1px solid #1E293B;}
 `;
 
 const NavPage = styled.button`
-  width: 44px; height: 44px; border-radius: 50%; border: 1px solid #1E293B;
+  width: 40px; height: 40px; border-radius: 10px; border: 1px solid #1E293B;
   background: #0F172A; color: #fff; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; &:disabled { opacity: 0.2; }
+  cursor: pointer; transition: 0.2s;
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+  &:not(:disabled):hover { background: #1E293B; color: #00D1FF; }
 `;
 
 const FloatingBtn = styled.button`
-  position: fixed; bottom: 20px; right: 20px; width: 64px; height: 64px;
-  background: #00D1FF; border-radius: 20px; border: none; 
-  box-shadow: 0 8px 30px rgba(0, 209, 255, 0.4); display: flex; align-items: center; justify-content: center;
-  z-index: 100; cursor: pointer;
-  @media (min-width: 1024px) { display: none; }
+  position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px;
+  background: #00D1FF; border-radius: 18px; border: none; 
+  box-shadow: 0 10px 25px rgba(0, 209, 255, 0.4); display: flex; align-items: center; justify-content: center;
+  z-index: 100; cursor: pointer; transition: 0.2s;
+  &:hover { transform: scale(1.05); }
+  @media (min-width: 850px) { display: none; }
 `;
 
 const LoadingState = styled(motion.div)`
-  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px;
-  p { margin-top: 1rem; color: #64748B; font-weight: 600; letter-spacing: 1px; }
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 100px 0;
+  .spin-loader { animation: spin 1s linear infinite; }
+  p { margin-top: 1.5rem; color: #64748B; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 0.75rem;}
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `;

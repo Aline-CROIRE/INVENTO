@@ -8,13 +8,13 @@ import {
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell, PieChart as RePie,
-  Pie, Legend
+  Pie, Legend,PieChart
 } from 'recharts';
 import api from '../api/axios';
 
 export default function Sustainability() {
   const [viewScope, setViewScope] = useState('MONTH');
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [realData, setRealData] = useState(null);
@@ -23,13 +23,11 @@ export default function Sustainability() {
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  const COLORS = {
-    profit: '#00E676',
-    revenue: '#00B0FF',
-    waste: '#FFB300', 
-    opex: '#f43f5e',
-    cogs: '#885AF8'
-  };
+  // Colors for Screen (Dark Mode, Glowing)
+  const SCREEN_COLORS = { profit: '#00E676', revenue: '#00B0FF', waste: '#FFB300', opex: '#f43f5e', cogs: '#885AF8' };
+  
+  // Colors for Print (High Contrast, Ink-Friendly)
+  const PRINT_COLORS = { profit: '#2e7d32', revenue: '#1565c0', waste: '#d32f2f', opex: '#ed6c02', cogs: '#7b1fa2' };
 
   // --- 1. INTELLIGENT DATA ENGINE ---
   const data = useMemo(() => {
@@ -45,18 +43,11 @@ export default function Sustainability() {
       }));
 
       return {
-        totalRevenue: 3450000,
-        netProfit: 1250000,
-        wasteLoss: 112000,
-        opEx: 450000,
-        cogs: 1638000,
-        efficiencyScore: 42.5, // Gross Margin
+        totalRevenue: 3450000, netProfit: 1250000, wasteLoss: 112000, opEx: 450000, cogs: 1638000, efficiencyScore: 42.5,
         timeline,
         categories: [
-          { name: 'Dairy', waste: 45000 },
-          { name: 'Grains', waste: 12000 },
-          { name: 'Produce', waste: 35000 },
-          { name: 'Pharma', waste: 8000 }
+          { name: 'Dairy', waste: 45000 }, { name: 'Grains', waste: 12000 },
+          { name: 'Produce', waste: 35000 }, { name: 'Pharma', waste: 8000 }
         ],
         insight: `Operating expenses consume 13% of revenue. Expired waste accounts for 3%. Capital flow is stable but can be optimized.`
       };
@@ -81,21 +72,9 @@ export default function Sustainability() {
     }
 
     return {
-      totalRevenue: rev,
-      netProfit: net,
-      wasteLoss: waste,
-      opEx: opex,
-      cogs: cogs,
-      efficiencyScore: Number(m.grossMargin || 0),
-      timeline: (realData?.timeline || []).map(t => ({
-        date: t.date || '?',
-        revenue: Number(t.revenue || 0),
-        waste: Number(t.expiredLoss || 0)
-      })),
-      categories: (realData?.categoryData || []).map(c => ({
-        name: c.name || 'Other',
-        waste: Number(c.waste || 0)
-      })),
+      totalRevenue: rev, netProfit: net, wasteLoss: waste, opEx: opex, cogs: cogs, efficiencyScore: Number(m.grossMargin || 0),
+      timeline: (realData?.timeline || []).map(t => ({ date: t.date || '?', revenue: Number(t.revenue || 0), waste: Number(t.expiredLoss || 0) })),
+      categories: (realData?.categoryData || []).map(c => ({ name: c.name || 'Other', waste: Number(c.waste || 0) })),
       insight: dynamicInsight
     };
   }, [isDemoMode, realData, viewScope, selectedYear, selectedMonth]);
@@ -104,22 +83,25 @@ export default function Sustainability() {
     if (isDemoMode) return;
     setLoading(true);
     try {
-      const res = await api.get(`/sales/report/detailed`, {
-        params: { scope: viewScope, year: selectedYear, month: selectedMonth }
-      });
+      const res = await api.get(`/sales/report/detailed`, { params: { scope: viewScope, year: selectedYear, month: selectedMonth } });
       if (res.data) setRealData(res.data);
-    } catch (e) {
-      console.error("Access Denied or Connection Lost.");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error("Access Denied or Connection Lost."); } 
+    finally { setLoading(false); }
   }, [isDemoMode, viewScope, selectedYear, selectedMonth]);
 
   useEffect(() => { if (!isDemoMode) fetchData(); }, [fetchData, isDemoMode]);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <PageWrapper initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
 
+      {/* ========================================= */}
+      {/* 1. SCREEN VIEW (DARK MODE DASHBOARD)      */}
+      {/* ========================================= */}
+      
       <HeaderSection className="no-print">
         <div className="branding">
           <div className="mode-selector" onClick={() => { setIsDemoMode(!isDemoMode); if (!isDemoMode) setRealData(null); }}>
@@ -127,7 +109,7 @@ export default function Sustainability() {
             <span className="mode-label">{isDemoMode ? 'SIMULATION' : 'LIVE AUDIT'}</span>
             <Radio size={14} className={!isDemoMode ? 'pulse' : ''} />
           </div>
-          <h1>Financial & <span>Sustainability Audit</span></h1>
+          <h1>Financial & <span>Sustainability</span></h1>
         </div>
 
         <div className="action-deck">
@@ -152,70 +134,63 @@ export default function Sustainability() {
             </button>
           </div>
 
-          <button className="print-action" onClick={() => window.print()}>
+          <button className="print-action" onClick={handlePrint}>
             <Printer size={18} /> <span>Audit Print</span>
           </button>
         </div>
       </HeaderSection>
 
       <MetricCluster className="no-print">
-        <MetricCard $color={COLORS.revenue}>
-          <div className="card-top"><label>Gross Margin</label><Activity size={18} color={COLORS.revenue} /></div>
+        <MetricCard $color={SCREEN_COLORS.revenue}>
+          <div className="card-top"><label>Gross Margin</label><Activity size={18} color={SCREEN_COLORS.revenue} /></div>
           <div className="card-val">{Number(data.efficiencyScore || 0).toFixed(1)}<small>%</small></div>
           <div className="bar-track"><motion.div className="fill" initial={{ width: 0 }} animate={{ width: `${data.efficiencyScore}%` }} /></div>
         </MetricCard>
 
-        <MetricCard $color={COLORS.waste}>
-          <div className="card-top"><label>Expired Waste Loss</label><AlertTriangle size={18} color={COLORS.waste} /></div>
+        <MetricCard $color={SCREEN_COLORS.waste}>
+          <div className="card-top"><label>Expired Waste</label><AlertTriangle size={18} color={SCREEN_COLORS.waste} /></div>
           <div className="card-val"><small>Rwf</small> {data.wasteLoss.toLocaleString()}</div>
           <div className="card-sub">Capital lost to expiration</div>
         </MetricCard>
 
-        <MetricCard $color={COLORS.opex}>
-          <div className="card-top"><label>Operating Expenses</label><Layers size={18} color={COLORS.opex} /></div>
+        <MetricCard $color={SCREEN_COLORS.opex}>
+          <div className="card-top"><label>Operating Expenses</label><Layers size={18} color={SCREEN_COLORS.opex} /></div>
           <div className="card-val"><small>Rwf</small> {data.opEx.toLocaleString()}</div>
           <div className="card-sub">Rent, Salaries & Overheads</div>
         </MetricCard>
 
-        <MetricCard $color={COLORS.profit}>
-          <div className="card-top"><label>True Net Profit</label><ShieldCheck size={18} color={COLORS.profit} /></div>
+        <MetricCard $color={SCREEN_COLORS.profit}>
+          <div className="card-top"><label>True Net Profit</label><ShieldCheck size={18} color={SCREEN_COLORS.profit} /></div>
           <div className="card-val"><small>Rwf</small> {data.netProfit.toLocaleString()}</div>
           <div className="card-sub">Final liquid earnings</div>
         </MetricCard>
       </MetricCluster>
 
       <BentoLayout className="no-print">
-
+        {/* SCREEN CHART: TIMELINE */}
         <ContentCard className="span-8">
           <div className="card-header">
             <div className="meta">
               <h3>Revenue vs Expiration Waste</h3>
-              <p>Tracking the financial impact of resource degradation over time.</p>
             </div>
             <div className="legend">
-              <span className="item"><i style={{ background: COLORS.revenue }} /> Revenue</span>
-              <span className="item"><i style={{ background: COLORS.waste }} /> Waste</span>
+              <span className="item"><i style={{ background: SCREEN_COLORS.revenue }} /> Revenue</span>
+              <span className="item"><i style={{ background: SCREEN_COLORS.waste }} /> Waste</span>
             </div>
           </div>
           <div className="canvas">
             <ResponsiveContainer width="100%" height="100%" minHeight={320}>
               <AreaChart data={data.timeline}>
                 <defs>
-                  <linearGradient id="glowRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.revenue} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.revenue} stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="glowWaste" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={COLORS.waste} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={COLORS.waste} stopOpacity={0} />
-                  </linearGradient>
+                  <linearGradient id="glowRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={SCREEN_COLORS.revenue} stopOpacity={0.3} /><stop offset="95%" stopColor={SCREEN_COLORS.revenue} stopOpacity={0} /></linearGradient>
+                  <linearGradient id="glowWaste" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={SCREEN_COLORS.waste} stopOpacity={0.3} /><stop offset="95%" stopColor={SCREEN_COLORS.waste} stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis hide />
                 <Tooltip contentStyle={{ background: '#0D1F2D', border: 'none', borderRadius: '15px' }} />
-                <Area type="monotone" dataKey="revenue" stroke={COLORS.revenue} strokeWidth={4} fill="url(#glowRev)" />
-                <Area type="monotone" dataKey="waste" stroke={COLORS.waste} strokeWidth={4} fill="url(#glowWaste)" />
+                <Area type="monotone" dataKey="revenue" stroke={SCREEN_COLORS.revenue} strokeWidth={4} fill="url(#glowRev)" />
+                <Area type="monotone" dataKey="waste" stroke={SCREEN_COLORS.waste} strokeWidth={4} fill="url(#glowWaste)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -226,19 +201,15 @@ export default function Sustainability() {
           <h4>Financial AI Insight</h4>
           <p className="narrative">{data.insight}</p>
           <div className="advice">
-            <Target size={14} color={COLORS.profit} />
+            <Target size={14} color={SCREEN_COLORS.profit} />
             <p>Ensure operating expenses remain under 20% of total revenue to protect True Net Margins.</p>
-          </div>
-          <div className="footer-node">
-            <Globe size={12} />
-            <span>Verified by Invento IIS-04</span>
           </div>
         </StrategyCard>
 
+        {/* SCREEN CHART: BARS */}
         <ContentCard className="span-6">
           <div className="card-header">
             <h3>Expiration by Category</h3>
-            <BarChart3 size={18} color={COLORS.waste} />
           </div>
           <div className="canvas-sm">
             <ResponsiveContainer width="100%" height={240}>
@@ -246,33 +217,23 @@ export default function Sustainability() {
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" tick={{ fill: 'white', fontSize: 11, fontWeight: 700 }} width={90} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ background: '#0D1F2D', border: 'none' }} />
-                <Bar dataKey="waste" fill={COLORS.waste} radius={[0, 6, 6, 0]} barSize={18} />
+                <Bar dataKey="waste" fill={SCREEN_COLORS.waste} radius={[0, 6, 6, 0]} barSize={18} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </ContentCard>
 
+        {/* SCREEN CHART: PIE */}
         <ContentCard className="span-6">
           <div className="card-header">
-            <h3>Comprehensive Capital Distribution</h3>
-            <PieIcon size={18} color={COLORS.profit} />
+            <h3>Capital Distribution</h3>
           </div>
           <div className="canvas-sm flex-center">
             <ResponsiveContainer width="100%" height={240}>
               <RePie>
-                <Pie
-                  data={[
-                    { name: 'True Profit', value: Math.max(0, data.netProfit) },
-                    { name: 'COGS', value: Math.max(0, data.cogs) },
-                    { name: 'OpEx', value: data.opEx },
-                    { name: 'Waste', value: data.wasteLoss }
-                  ]}
-                  innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none"
-                >
-                  <Cell fill={COLORS.profit} />
-                  <Cell fill={COLORS.cogs} />
-                  <Cell fill={COLORS.opex} />
-                  <Cell fill={COLORS.waste} />
+                <Pie data={[{ name: 'True Profit', value: Math.max(0, data.netProfit) }, { name: 'COGS', value: Math.max(0, data.cogs) }, { name: 'OpEx', value: data.opEx }, { name: 'Waste', value: data.wasteLoss }]}
+                  innerRadius={65} outerRadius={85} paddingAngle={8} dataKey="value" stroke="none">
+                  <Cell fill={SCREEN_COLORS.profit} /><Cell fill={SCREEN_COLORS.cogs} /><Cell fill={SCREEN_COLORS.opex} /><Cell fill={SCREEN_COLORS.waste} />
                 </Pie>
                 <Tooltip />
                 <Legend verticalAlign="bottom" align="center" height={36} wrapperStyle={{ fontSize: '12px' }}/>
@@ -282,11 +243,14 @@ export default function Sustainability() {
         </ContentCard>
       </BentoLayout>
 
-      {/* --- FORMAL PDF PRINT TEMPLATE --- */}
+      {/* ========================================= */}
+      {/* 2. PRINT VIEW (A4 PDF EXPORT WITH CHARTS) */}
+      {/* ========================================= */}
+      
       <div id="print-doc">
         <div className="doc-header">
           <div className="brand">
-            <Leaf size={32} color="#00E676" />
+            <Leaf size={32} color={PRINT_COLORS.profit} />
             <div className="b-text">
               <h1>INVENTO FINANCIAL AUDIT</h1>
               <p>Official Sustainability & Resource Report</p>
@@ -300,13 +264,56 @@ export default function Sustainability() {
         </div>
 
         <div className="doc-pillars">
-          <div className="p-card"><span>Gross Revenue</span><strong>Rwf {data.totalRevenue.toLocaleString()}</strong></div>
-          <div className="p-card"><span>Operating Expenses</span><strong>Rwf {data.opEx.toLocaleString()}</strong></div>
-          <div className="p-card"><span>Total Capital Waste</span><strong>Rwf {data.wasteLoss.toLocaleString()}</strong></div>
-          <div className="p-card" style={{borderColor: '#00E676'}}><span>True Net Profit</span><strong style={{color: '#00994d'}}>Rwf {data.netProfit.toLocaleString()}</strong></div>
+          <div className="p-card"><span>Gross Revenue</span><strong style={{color: PRINT_COLORS.revenue}}>Rwf {data.totalRevenue.toLocaleString()}</strong></div>
+          <div className="p-card"><span>Operating Expenses</span><strong style={{color: PRINT_COLORS.opex}}>Rwf {data.opEx.toLocaleString()}</strong></div>
+          <div className="p-card"><span>Total Expired Waste</span><strong style={{color: PRINT_COLORS.waste}}>Rwf {data.wasteLoss.toLocaleString()}</strong></div>
+          <div className="p-card" style={{borderColor: PRINT_COLORS.profit}}><span>True Net Profit</span><strong style={{color: PRINT_COLORS.profit}}>Rwf {data.netProfit.toLocaleString()}</strong></div>
         </div>
 
-        <h3 className="section-title">Waste Breakdown by Business Sector</h3>
+        {/* PRINT SPECIFIC CHARTS (Fixed Sizes, No Animations) */}
+        <div className="print-chart-row-full">
+            <div className="print-chart-box">
+               <h3 className="section-title">Revenue vs Waste Flow</h3>
+               {/* Notice isAnimationActive={false} - CRITICAL for printing SVGs */}
+               <AreaChart width={700} height={220} data={data.timeline} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#333' }} axisLine={{stroke: '#ccc'}} tickLine={false} />
+                 <YAxis tick={{ fontSize: 10, fill: '#333' }} axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
+                 <Area type="monotone" dataKey="revenue" stroke={PRINT_COLORS.revenue} strokeWidth={3} fill={`${PRINT_COLORS.revenue}20`} isAnimationActive={false} />
+                 <Area type="monotone" dataKey="waste" stroke={PRINT_COLORS.waste} strokeWidth={3} fill={`${PRINT_COLORS.waste}20`} isAnimationActive={false} />
+               </AreaChart>
+            </div>
+        </div>
+
+        <div className="print-chart-row-split">
+            <div className="print-chart-box half">
+               <h3 className="section-title">Capital Distribution</h3>
+               <PieChart width={320} height={200}>
+                 <Pie data={[
+                    { name: 'Profit', value: Math.max(0, data.netProfit) },
+                    { name: 'COGS', value: Math.max(0, data.cogs) },
+                    { name: 'OpEx', value: data.opEx },
+                    { name: 'Waste', value: data.wasteLoss }
+                  ]}
+                  innerRadius={50} outerRadius={80} dataKey="value" isAnimationActive={false} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} >
+                  <Cell fill={PRINT_COLORS.profit} /><Cell fill={PRINT_COLORS.cogs} /><Cell fill={PRINT_COLORS.opex} /><Cell fill={PRINT_COLORS.waste} />
+                 </Pie>
+               </PieChart>
+            </div>
+            
+            <div className="print-chart-box half">
+               <h3 className="section-title">Waste by Category</h3>
+               <BarChart width={320} height={200} data={data.categories} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                 <XAxis type="number" hide />
+                 <YAxis dataKey="name" type="category" tick={{ fill: '#333', fontSize: 11, fontWeight: 700 }} width={80} axisLine={false} tickLine={false} />
+                 <Bar dataKey="waste" fill={PRINT_COLORS.waste} radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={false}>
+                    {data.categories.map((entry, index) => <Cell key={`cell-${index}`} fill={PRINT_COLORS.waste} />)}
+                 </Bar>
+               </BarChart>
+            </div>
+        </div>
+
+        <h3 className="section-title" style={{marginTop: '30px'}}>Detailed Category Breakdown</h3>
         <table className="doc-table">
           <thead>
             <tr><th>Category Name</th><th align="right">Loss Identified (RWF)</th><th align="right">Status</th></tr>
@@ -324,32 +331,48 @@ export default function Sustainability() {
 
         <div className="doc-footer">
           <p>System-generated financial audit. Accuracy verified via local database synchronization.</p>
-          <p>© {new Date().getFullYear()} Invento Rwanda • Confidential Commercial Document</p>
+          <p><strong>Insight Note:</strong> {data.insight}</p>
         </div>
       </div>
 
       <style>{`
         @media screen { #print-doc { display: none; } }
+        
         @media print {
-            @page { size: A4; margin: 20mm; }
+            @page { size: A4 portrait; margin: 15mm; }
+            body { background: white !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body * { visibility: hidden; height: 0; overflow: hidden; }
+            
             #print-doc, #print-doc * { visibility: visible; height: auto; overflow: visible; display: block; }
-            #print-doc { position: absolute; left: 0; top: 0; width: 100%; color: #000; background: #fff; font-family: 'Helvetica', 'Arial', sans-serif; }
-            .doc-header { display: flex; justify-content: space-between; border-bottom: 2.5px solid #000; padding-bottom: 20px; margin-bottom: 40px; }
+            #print-doc { position: absolute; left: 0; top: 0; width: 100%; max-width: 800px; color: #000; background: #fff; font-family: 'Helvetica', 'Arial', sans-serif; }
+            
+            .doc-header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 25px; }
             .brand { display: flex; align-items: center; gap: 15px; }
-            .b-text h1 { font-size: 22px; font-weight: 900; margin: 0; }
-            .b-text p { font-size: 11px; color: #444; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+            .b-text h1 { font-size: 20px; font-weight: 900; margin: 0; letter-spacing: -0.5px;}
+            .b-text p { font-size: 10px; color: #555; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
             .doc-meta p { font-size: 10px; text-align: right; margin: 2px 0; }
-            .doc-pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 50px; }
-            .p-card { border: 1.5px solid #eee; padding: 15px; border-radius: 8px; background: #fafafa; }
-            .p-card span { display: block; font-size: 8px; text-transform: uppercase; color: #666; font-weight: 700; margin-bottom: 5px; }
-            .p-card strong { font-size: 16px; }
-            .section-title { font-size: 14px; text-transform: uppercase; margin-bottom: 15px; border-left: 4px solid #00E676; padding-left: 10px; }
-            .doc-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 60px; }
-            .doc-table th { background: #f5f5f5; padding: 12px; border-bottom: 1.5px solid #000; }
-            .doc-table td { padding: 12px; border-bottom: 1px solid #eee; }
-            .doc-footer { border-top: 1px solid #eee; padding-top: 20px; text-align: center; }
-            .doc-footer p { font-size: 9px; color: #999; }
+            
+            .doc-pillars { display: flex; gap: 15px; margin-bottom: 30px; justify-content: space-between; }
+            .p-card { border: 1px solid #ccc; padding: 15px; border-radius: 8px; background: #fafafa; flex: 1; text-align: center; }
+            .p-card span { display: block; font-size: 8px; text-transform: uppercase; color: #555; font-weight: 700; margin-bottom: 5px; }
+            .p-card strong { font-size: 14px; }
+            
+            .section-title { font-size: 12px; text-transform: uppercase; margin-bottom: 15px; border-left: 4px solid #000; padding-left: 8px; }
+            
+            /* PRINT CHART LAYOUT */
+            .print-chart-row-full { margin-bottom: 20px; width: 100%; border: 1px solid #eee; padding: 10px; border-radius: 8px;}
+            .print-chart-row-split { display: flex; gap: 20px; width: 100%; }
+            .print-chart-box.half { flex: 1; border: 1px solid #eee; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+            
+            /* Recharts nested SVG fix for printing */
+            .recharts-wrapper { display: inline-block !important; }
+            
+            .doc-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 40px; }
+            .doc-table th { background: #f0f0f0; padding: 10px; border-bottom: 1px solid #000; font-weight: bold; }
+            .doc-table td { padding: 10px; border-bottom: 1px solid #ccc; }
+            
+            .doc-footer { border-top: 1px solid #ccc; padding-top: 15px; text-align: center; margin-top: 40px; page-break-inside: avoid;}
+            .doc-footer p { font-size: 9px; color: #666; margin: 4px 0; }
             .no-print { display: none !important; }
         }
       `}</style>
@@ -357,7 +380,7 @@ export default function Sustainability() {
   );
 }
 
-// --- STYLES ---
+// --- STYLES FOR SCREEN (Unchanged Dark Mode Excellence) ---
 const PageWrapper = styled(motion.div)`max-width: 1400px; margin: 0 auto; padding: 1rem; color: #fff; background: #04080F; min-height: 100vh; @media (min-width: 768px) { padding: 2.5rem; }`;
 const HeaderSection = styled.header`display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 3.5rem; @media (min-width: 1100px) { flex-direction: row; justify-content: space-between; align-items: flex-end; } .branding { .mode-selector { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04); padding: 6px 16px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; .status-dot { width: 8px; height: 8px; border-radius: 50%; &.live { background: #00E676; box-shadow: 0 0 10px #00E676; } &.sim { background: #FFB300; } } .mode-label { font-size: 0.65rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; } } h1 { font-size: 2.2rem; margin: 0; font-weight: 900; letter-spacing: -1px; span { color: #00E676; } } } .action-deck { display: flex; gap: 1rem; flex-wrap: wrap; .deck-glass { display: flex; align-items: center; gap: 12px; background: #0D1F2D; padding: 8px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); .scope-pills { display: flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px; button { border: none; background: none; color: #64748b; padding: 8px 16px; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: 0.3s; &.active { background: #fff; color: #000; border-radius: 8px; } } } .divider-v { width: 1.5px; height: 25px; background: rgba(255,255,255,0.1); } .pickers select { background: none; border: none; color: #fff; font-weight: 800; outline: none; cursor: pointer; font-size: 0.85rem; padding: 0 5px; } .sync-trigger { background: none; border: none; color: #64748b; cursor: pointer; transition: 0.3s; &.spin { animation: spin 1s linear infinite; } &:hover { color: #fff; } } } .print-action { background: #00E676; color: #04090E; border: none; padding: 0 24px; border-radius: 14px; font-weight: 900; height: 50px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; &:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0, 230, 118, 0.3); } } } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
 const MetricCluster = styled.div`display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 3.5rem; @media (min-width: 650px) { grid-template-columns: repeat(2, 1fr); } @media (min-width: 1100px) { grid-template-columns: repeat(4, 1fr); }`;
