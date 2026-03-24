@@ -25,7 +25,7 @@ const AddProductModal = ({ onClose, onRefresh }) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      await api.post('/api/inventory', formData); // Corrected endpoint prefix
+      await api.post('/inventory', formData);
       onRefresh();
       onClose();
     } catch (err) { 
