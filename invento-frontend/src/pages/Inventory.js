@@ -96,7 +96,7 @@ export default function Inventory() {
           </ModeSwitch>
 
           <div className="actions desktop-only">
-            <NavBtn onClick={() => setIsImportOpen(true)} title="Export CSV"><Download size={18}/></NavBtn>
+            <NavBtn onClick={() => setIsImportOpen(true)} title="Import CSV"><Download size={18}/></NavBtn>
             <PrimaryBtn onClick={() => setIsStockInOpen(true)}>
               <Plus size={18} /> New Asset
             </PrimaryBtn>

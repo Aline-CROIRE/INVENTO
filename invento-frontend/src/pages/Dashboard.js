@@ -3,23 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  TrendingUp, DollarSign, Activity, Package, RefreshCcw, 
-  ChevronRight, ShoppingCart, Shield, User, Server, Radio, 
-  Users, Database, BarChart3, Zap, Clock, ArrowUpRight, CheckCircle, Receipt
+  TrendingUp, DollarSign, Activity, RefreshCcw, 
+  ChevronRight, Radio, ArrowUpRight, Receipt, AlertTriangle,
+  Calendar, Filter
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { 
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  CartesianGrid, PieChart, Pie, Cell, BarChart, Bar, Line, ComposedChart 
+  CartesianGrid, Line, ComposedChart 
 } from 'recharts';
+
+// --- HELPER: Number Shortener (e.g., 1.2M, 50k) ---
+const formatShort = (num) => {
+    if (num === null || num === undefined || isNaN(num)) return "0";
+    const sign = num < 0 ? "-" : "";
+    const absNum = Math.abs(num);
+    
+    if (absNum >= 1000000) {
+        return sign + (absNum / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (absNum >= 1000) {
+        return sign + (absNum / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    }
+    return sign + absNum.toString();
+};
 
 const Dashboard = () => {
   const { user } = useAuth(); 
   const navigate = useNavigate();
   
-  // --- STATE ---
-  const [isLive, setIsLive] = useState(false);
+  const [isAnalysisMode, setIsAnalysisMode] = useState(false);
   const [viewScope, setViewScope] = useState('MONTH'); 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -27,318 +41,239 @@ const Dashboard = () => {
   const [realData, setRealData] = useState(null);
 
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const years = useMemo(() => {
+    const current = new Date().getFullYear();
+    return [current - 2, current - 1, current, current + 1, current + 2];
+  }, []);
 
-  // --- 1. DATA ENGINE (Upgraded for True Net Profit & OpEx) ---
   const data = useMemo(() => {
-    // --- Mode A: SIMULATION (Insightful Mock Data) ---
-    if (!isLive) {
-        const isYearly = viewScope === 'YEAR';
-        const points = isYearly ? 12 : 14;
-        const seed = selectedMonth + selectedYear; 
-
-        const chartData = Array.from({ length: points }).map((_, i) => ({
-            name: isYearly ? monthNames[i] : `${i + 1}`,
-            revenue: 40000 + (Math.sin(i + seed) * 15000) + Math.random() * 5000,
-            profit: 20000 + (Math.sin(i + seed) * 10000) + Math.random() * 3000, // True Net
-        }));
-
-        const topProducts = [
-            { name: 'Inyange Milk', val: 85, color: '#00B0FF' },
-            { name: 'Basmati Rice', val: 65, color: '#00E676' },
-            { name: 'USB-C Cables', val: 40, color: '#885AF8' },
-            { name: 'Movit Soap', val: 30, color: '#FF9100' }
-        ];
-
-        const stats = user?.role === 'ADMIN' ? [
-            { label: "Registered Users", val: "12", sub: "Platform active", color: "#885AF8", icon: <Users/> },
-            { label: "System Uptime", val: "99.9%", sub: "Stable connection", color: "#00E676", icon: <Activity/> },
-            { label: "Cloud Nodes", val: "4", sub: "Regional hubs", color: "#00B0FF", icon: <Server/> }
-        ] : [
-            { label: "Gross Revenue", val: "Rwf 1.4M", growth: "+12%", color: "#00B0FF", icon: <DollarSign/> },
-            { label: "True Net Profit", val: "Rwf 520k", growth: "+5%", color: "#00E676", icon: <TrendingUp/> },
-            { label: "Op. Expenses", val: "Rwf 150k", sub: "Overheads", color: "#f43f5e", icon: <Receipt/> } 
-        ];
-
-        return { health: 94, stats, chartData, topProducts, logs: [{ id: 1, type: 'System', msg: 'Demo environment active.', time: 'Now' }] };
+    if (isAnalysisMode) {
+        return { 
+            health: 92, 
+            stats: [
+                { label: "Sales Revenue", val: formatShort(2400000), color: "#00B0FF", icon: <DollarSign/> },
+                { label: "Net Earnings", val: formatShort(840000), color: "#00E676", icon: <TrendingUp/> },
+                { label: "Op. Costs", val: formatShort(310000), color: "#f43f5e", icon: <Receipt/> } 
+            ], 
+            chartData: Array.from({ length: 12 }).map((_, i) => ({ name: monthNames[i], revenue: 50000, profit: 30000 })),
+            topCategories: [{ name: 'Inventory', val: 78, color: '#00B0FF' }],
+            logs: [{ id: 1, type: 'Alert', msg: 'Stock low on 3 items.', time: '10m ago', path: '/inventory' }]
+        };
     }
 
-    // --- Mode B: LIVE PRODUCTION (Real Database Data) ---
-    if (!realData) return { health: 0, stats: [], chartData: [], topProducts: [], logs: [] };
-
-    // Point to the detailed report structure from backend
+    if (!realData) return { health: 0, stats: [], chartData: [], topCategories: [], logs: [] };
     const s = realData.summary || {};
-    const processed = {
-        health: Math.round(s.grossMargin || 0) || 85,
-        chartData: (realData.timeline || []).map(d => ({ name: d.date, revenue: d.revenue || 0, profit: (d.revenue * 0.3) })), 
-        logs: (realData.insights || []).map((ins, i) => ({ id: i, type: 'Insight', msg: ins.message, time: 'Generated' })),
-        
-        // Map top categories to performance bars
-        topProducts: (realData.categoryData || []).slice(0,4).map((c, i) => {
-            const colors = ['#00B0FF', '#00E676', '#885AF8', '#FF9100'];
-            const maxRev = Math.max(...(realData.categoryData || []).map(x => x.revenue));
-            return { name: c.name, val: maxRev > 0 ? Math.round((c.revenue/maxRev)*100) : 0, color: colors[i % colors.length] };
-        })
+    
+    return {
+        health: Math.round(s.grossMargin || 85),
+        chartData: (realData.timeline || []).map(d => ({ name: d.date, revenue: d.revenue || 0, profit: (d.revenue * 0.4) })),
+        topCategories: (realData.categoryData || []).slice(0,3).map((c, i) => ({
+            name: c.name, val: Math.min(100, Math.round((c.revenue / (s.totalRevenue || 1)) * 100)),
+            color: ['#00B0FF', '#00E676', '#885AF8'][i % 3]
+        })),
+        stats: [
+            { label: "Live Sales", val: formatShort(s.totalRevenue), sub: "Total revenue", color: "#00B0FF", icon: <DollarSign/> },
+            { label: "Net Profit", val: formatShort(s.netProfit), sub: "Earnings", color: "#00E676", icon: <TrendingUp/> },
+            { label: "Overheads", val: formatShort(s.totalOperatingExpenses), sub: "Total bills", color: "#f43f5e", icon: <Receipt/> }
+        ],
+        logs: (realData.insights || []).map((ins, i) => ({ id: i, type: 'Insight', msg: ins.message, time: 'System', path: '/sales' }))
     };
-
-    if (processed.topProducts.length === 0) processed.topProducts = [{ name: 'Awaiting Data', val: 0, color: '#00B0FF' }];
-
-    if (user?.role === 'ADMIN') {
-        processed.stats = [
-            { label: "Real Users", val: realData.userCount || "Active", sub: "Verified accounts", color: "#885AF8", icon: <Users/> },
-            { label: "System Health", val: `${processed.health}%`, sub: "Resource status", color: "#00E676", icon: <Activity/> },
-            { label: "Database", val: "Online", sub: "Secure Link", color: "#00B0FF", icon: <Database/> }
-        ];
-    } else {
-        processed.stats = [
-            { label: "Total Sales", val: `Rwf ${(s.totalRevenue || 0).toLocaleString()}`, color: "#00B0FF", icon: <DollarSign/> },
-            { label: "True Net Profit", val: `Rwf ${(s.netProfit || 0).toLocaleString()}`, color: "#00E676", icon: <TrendingUp/> },
-            { label: "Op. Expenses", val: `Rwf ${(s.totalOperatingExpenses || 0).toLocaleString()}`, color: "#f43f5e", icon: <Receipt/> } 
-        ];
-    }
-    return processed;
-  }, [isLive, realData, user?.role, viewScope, selectedYear, selectedMonth]);
+  }, [isAnalysisMode, realData, viewScope, selectedMonth, selectedYear]);
 
   const fetchData = useCallback(async () => {
-    if (!isLive) return;
+    if (isAnalysisMode) return;
     setIsSyncing(true);
     try {
-      const res = await api.get('/sales/report/detailed', { params: { scope: viewScope, month: selectedMonth, year: selectedYear } });
+      const res = await api.get('/sales/report/detailed', { 
+        params: { scope: viewScope, month: selectedMonth, year: selectedYear } 
+      });
       setRealData(res.data);
-    } catch (e) { console.error("Sync Error"); }
-    finally { setTimeout(() => setIsSyncing(false), 500); }
-  }, [isLive, viewScope, selectedMonth, selectedYear]);
+    } catch (e) { console.warn("Sync failed."); }
+    finally { setTimeout(() => setIsSyncing(false), 600); }
+  }, [isAnalysisMode, viewScope, selectedMonth, selectedYear]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   return (
     <PageWrapper initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      
-      {/* HEADER / BRIEFING */}
-      <ExecutiveBrief>
-        <div className="brief-content">
-            <div className="avatar-capsule">
-                <div className="logo-ring"><img src="/logo.png" alt="Invento" /></div>
-                <div className="online-badge" />
-            </div>
-            <div className="text-area">
-                <h1>Welcome, <span>{user?.name || "User"}</span></h1>
-                <p>
-                    Your business is operating at a <span className="health-txt">{data.health}% health score</span>. 
-                    Viewing data for {monthNames[selectedMonth-1]} {selectedYear}.
-                </p>
-            </div>
+      {/* HEADER */}
+      <HeaderSection>
+        <div className="branding">
+            <h1>Management <span>Dashboard</span></h1>
+            <p>Welcome, <strong>{user?.name}</strong>. Health: <span className="health">{data.health}% Stable</span></p>
         </div>
         
-        <ControlHub>
-            <div className="live-toggle" onClick={() => setIsLive(!isLive)}>
-                <div className={`dot ${isLive ? 'live' : 'sim'}`} />
-                <span>{isLive ? 'LIVE DATA' : 'DEMO MODE'}</span>
-                <Radio size={12} className={isLive ? 'pulse' : ''} />
+        <ActionHub>
+            <div className="mode-pill" onClick={() => setIsAnalysisMode(!isAnalysisMode)}>
+                <div className={`dot ${isAnalysisMode ? 'sim' : 'live'}`} />
+                <span>{isAnalysisMode ? 'ANALYSIS MODE' : 'LIVE PRODUCTION'}</span>
+                <Radio size={14} className={!isAnalysisMode ? 'pulse' : ''} />
             </div>
+
             <div className="glass-filters">
-                <div className="scope-pills">
+                <div className="scope-tabs">
                     <button className={viewScope === 'MONTH' ? 'active' : ''} onClick={() => setViewScope('MONTH')}>Monthly</button>
                     <button className={viewScope === 'YEAR' ? 'active' : ''} onClick={() => setViewScope('YEAR')}>Annual</button>
                 </div>
-                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
-                    {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                {viewScope === 'MONTH' && (
-                   <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
-                      {monthNames.map((m, i) => <option key={m} value={i+1}>{m}</option>)}
-                   </select>
-                )}
-                <button className={`sync-btn ${isSyncing ? 'spin' : ''}`} onClick={fetchData}><RefreshCcw size={16}/></button>
+                <div className="pickers">
+                    <div className="select-container">
+                        <Calendar size={14} />
+                        <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                            {years.map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
+                    {viewScope === 'MONTH' && (
+                       <div className="select-container">
+                          <Filter size={14} />
+                          <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+                             {monthNames.map((m, i) => <option key={m} value={i+1}>{m}</option>)}
+                          </select>
+                       </div>
+                    )}
+                </div>
+                <button className={`refresh-btn ${isSyncing ? 'spin' : ''}`} onClick={fetchData} disabled={isAnalysisMode}>
+                    <RefreshCcw size={18}/>
+                </button>
             </div>
-        </ControlHub>
-      </ExecutiveBrief>
+        </ActionHub>
+      </HeaderSection>
 
-      {/* KPI TILES (Mobile responsive) */}
-      <MetricsGrid>
+      {/* KPI TILES (ONLY FINANCIALS NOW) */}
+      <MetricsRow>
         {data.stats.map((s, i) => (
-          <StatCard key={i} whileHover={{ y: -5 }}>
-             <div className="icon-box" style={{ background: `${s.color}15`, color: s.color }}>{s.icon}</div>
-             <div className="info">
+          <MetricCard key={i} whileHover={{ y: -5 }}>
+             <div className="icon-wrap" style={{ background: `${s.color}15`, color: s.color }}>{s.icon}</div>
+             <div className="details">
                 <label>{s.label}</label>
-                <h3>{s.val}</h3>
-                <p>{s.sub || s.growth}</p>
+                <h2>Rwf {s.val}</h2>
+                <span className="sub">{s.sub}</span>
              </div>
-          </StatCard>
+             <div className="glow" style={{ background: s.color }} />
+          </MetricCard>
         ))}
-      </MetricsGrid>
+      </MetricsRow>
 
-      {/* ADVANCED BENTO GRID */}
-      <BentoLayout>
-        {/* CHART 1: MAIN TREND */}
-        <div className="grid-item span-8 chart-card">
-           <div className="card-header">
-              <h3>{user?.role === 'ADMIN' ? 'Platform Usage' : 'Revenue vs Net Profit'}</h3>
-              <div className="legend"><span className="dot blue"/> Revenue <span className="dot green"/> Profit</div>
+      {/* BENTO ANALYTICS */}
+      <BentoContainer>
+        <div className="grid-item span-8">
+           <div className="chart-header">
+              <h3>Financial Performance</h3>
+              <div className="legend">
+                  <div className="item"><span className="dot blue"/> Revenue</div>
+                  <div className="item"><span className="dot green"/> Profit</div>
+              </div>
            </div>
            <div className="canvas">
-              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+              <ResponsiveContainer width="100%" height="100%">
                  <ComposedChart data={data.chartData}>
-                    <defs>
-                        <linearGradient id="colorArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#00B0FF" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#00B0FF" stopOpacity={0}/>
-                        </linearGradient>
-                    </defs>
+                    <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00B0FF" stopOpacity={0.15}/><stop offset="95%" stopColor="#00B0FF" stopOpacity={0}/></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                     <XAxis dataKey="name" tick={{fill:'#64748b', fontSize: 11}} axisLine={false} tickLine={false} />
                     <YAxis hide />
-                    <Tooltip contentStyle={{background: '#0D1F2D', border: 'none', borderRadius: '15px'}} />
-                    <Area type="monotone" dataKey="revenue" fill="url(#colorArea)" stroke="#00B0FF" strokeWidth={3} />
-                    <Line type="monotone" dataKey="profit" stroke="#00E676" strokeWidth={2} dot={{r:4}} />
+                    <Tooltip 
+                        contentStyle={{background: '#000', border: '1px solid #333', borderRadius: '12px'}} 
+                        formatter={(val) => `Rwf ${val.toLocaleString()}`}
+                    />
+                    <Area type="monotone" dataKey="revenue" fill="url(#areaGrad)" stroke="#00B0FF" strokeWidth={3} />
+                    <Line type="monotone" dataKey="profit" stroke="#00E676" strokeWidth={3} dot={{r: 4, fill: '#00E676'}} />
                  </ComposedChart>
               </ResponsiveContainer>
            </div>
         </div>
 
-        {/* CHART 2: HEALTH GAUGE */}
-        <div className="grid-item span-4 pie-card">
-           <h3>Operational Score</h3>
-           <div className="gauge-box">
-              <div className="gauge-val"><h2>{data.health}%</h2><span>Health</span></div>
-              <ResponsiveContainer width="100%" height={180}>
-                 <PieChart>
-                    <Pie data={[{v: data.health}, {v: 100-data.health}]} innerRadius={60} outerRadius={80} startAngle={90} endAngle={450} dataKey="v" stroke="none">
-                       <Cell fill="#00E676" />
-                       <Cell fill="rgba(255,255,255,0.05)" />
-                    </Pie>
-                 </PieChart>
-              </ResponsiveContainer>
-           </div>
-           <div className="insight-note">
-              <Activity size={14} color="#00B0FF" style={{flexShrink:0}}/>
-              <p>Business vitals are currently within target margins.</p>
-           </div>
-        </div>
-
-        {/* CHART 3: PERFORMANCE BARS */}
-        <div className="grid-item span-6 bar-card">
-           <div className="card-header">
-              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                 <BarChart3 size={18} color="#885AF8"/>
-                 <h3> Top Selling Categories</h3>
-              </div>
-           </div>
-           <div className="performance-list">
-              {data.topProducts.map((p, i) => (
-                <div key={i} className="perf-row">
-                   <div className="labels"><span>{p.name}</span><strong>{p.val}%</strong></div>
-                   <div className="bar-bg"><motion.div className="fill" style={{background: p.color}} initial={{width: 0}} animate={{width: `${p.val}%`}} transition={{duration:1}} /></div>
+        <div className="grid-item span-4">
+           <h3>Category Performance</h3>
+           <div className="stack">
+              {data.topCategories.map((cat, i) => (
+                <div key={i} className="row">
+                   <div className="labels"><span>{cat.name}</span><strong>{cat.val}%</strong></div>
+                   <div className="bar-bg"><motion.div className="bar-fill" style={{ background: cat.color }} initial={{ width: 0 }} animate={{ width: `${cat.val}%` }} /></div>
                 </div>
               ))}
            </div>
         </div>
 
-        {/* LOG STREAM - Professional Wording */}
-        <div className="grid-item span-6 log-card">
-           <div className="card-header"><h3>System Insights & Alerts</h3></div>
-           <div className="log-list">
+        <div className="grid-item span-12">
+           <div className="chart-header"><h3>Recent Operational Activity</h3></div>
+           <div className="activity-list">
               {data.logs.map((log) => (
-                <div key={log.id} className="log-item">
-                   <div className="line" />
-                   <div className="content"><strong>{log.type}</strong><p>{log.msg}</p></div>
-                   <span className="time">{log.time}</span>
+                <div key={log.id} className="log-row" onClick={() => navigate(log.path)}>
+                   <div className="log-icon">{log.type === 'Alert' ? <AlertTriangle size={16} color="#fbbf24"/> : <Activity size={16} color="#00B0FF"/>}</div>
+                   <div className="log-text">
+                       <div className="top"><strong>{log.type}</strong><span className="time">{log.time}</span></div>
+                       <p>{log.msg}</p>
+                   </div>
+                   <ChevronRight size={18} />
                 </div>
               ))}
-              {data.logs.length === 0 && <div className="log-item"><p style={{color:'#64748b', fontSize:'0.85rem'}}>No new insights for the selected period.</p></div>}
            </div>
-           <button className="full-btn" onClick={() => navigate(user?.role === 'ADMIN' ? '/users' : '/sales')}>View Detailed Ledgers <ArrowUpRight size={14}/></button>
         </div>
-      </BentoLayout>
-
+      </BentoContainer>
     </PageWrapper>
   );
 };
 
-export default Dashboard;
-
-// --- STYLES (Strictly Responsive & Mobile-First) ---
+// --- STYLES ---
 
 const PageWrapper = styled(motion.div)`
-  width: 100%; max-width: 100vw; box-sizing: border-box; overflow-x: hidden;
-  padding: 1rem; color: white; background: #04080F; min-height: 100vh;
-  @media (min-width: 768px) { padding: 1.5rem; }
-  @media (min-width: 1024px) { padding: 2.5rem; max-width: 1500px; margin: 0 auto; }
-  *, *::before, *::after { box-sizing: border-box; }
+  padding: 1.5rem; background: #020617; min-height: 100vh; color: #fff;
+  @media (min-width: 1024px) { padding: 3rem; max-width: 1600px; margin: 0 auto; }
 `;
 
-const ExecutiveBrief = styled.header`
-    display: flex; flex-direction: column; align-items: flex-start; gap: 1.5rem; margin-bottom: 3rem; width: 100%;
-    @media (min-width: 900px) { flex-direction: row; justify-content: space-between; align-items: center; }
-
-    .brief-content { display: flex; align-items: center; gap: 1.2rem; width: 100%;
-        .avatar-capsule { width: 60px; height: 60px; position: relative; flex-shrink: 0;
-            .logo-ring { height: 100%; width: 100%; background: white; border-radius: 18px; padding: 10px; img { width: 100%; object-fit: contain; } }
-            .online-badge { position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; background: #00E676; border-radius: 50%; border: 3px solid #04080F; } }
-        .text-area { 
-            h1 { font-size: 1.6rem; margin: 0 0 4px; font-weight: 900; letter-spacing: -1px; span { color: #00B0FF; } } 
-            p { color: #64748b; font-size: 0.85rem; margin: 0; line-height: 1.4; .health-txt { color: #00E676; font-weight: 800; } } } 
-    }
+const HeaderSection = styled.header`
+    display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 2rem; margin-bottom: 3rem;
+    @media (min-width: 1100px) { flex-direction: row; align-items: center; }
+    .branding { h1 { font-size: 2rem; margin: 0; font-weight: 900; letter-spacing: -1.5px; span { color: #00B0FF; } }
+        p { color: #64748b; margin: 5px 0 0; font-size: 0.9rem; .health { color: #00E676; font-weight: 800; } } }
 `;
 
-const ControlHub = styled.div`
-    display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; width: 100%;
-    @media (min-width: 900px) { align-items: flex-end; width: auto; }
-
-    .live-toggle { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: 50px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
-        span { font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; } .dot { width: 8px; height: 8px; border-radius: 50%; &.live { background: #00E676; } &.sim { background: #FF9100; } } }
+const ActionHub = styled.div`
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1.2rem;
+    @media (min-width: 1100px) { align-items: flex-end; }
+    .mode-pill { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+        span { font-size: 0.65rem; font-weight: 900; color: #94a3b8; letter-spacing: 1px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; &.live { background: #00E676; box-shadow: 0 0 10px #00E676; } &.sim { background: #fbbf24; } } }
     
-    .glass-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: rgba(13,31,45,0.6); padding: 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); width: 100%;
-        @media (min-width: 600px) { width: auto; flex-wrap: nowrap; }
-        .scope-pills { display: flex; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 12px;
-            button { border: none; background: none; color: #64748b; padding: 6px 14px; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: 0.3s; &.active { background: white; color: black; border-radius: 8px; } } }
-        select { background: none; border: none; color: white; font-weight: 700; cursor: pointer; outline: none; font-size: 0.85rem; padding: 0 5px;}
-        .sync-btn { background: #007BFF; color: white; border: none; width: 36px; height: 36px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; &:hover{ background: #0056b3;} &.spin { animation: rotate 1s linear infinite; } } }
-    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .glass-filters { display: flex; align-items: center; gap: 12px; background: rgba(15,23,42,0.6); padding: 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px);
+        .scope-tabs { display: flex; gap: 4px; padding-right: 12px; border-right: 1px solid rgba(255,255,255,0.1);
+            button { background: none; border: none; color: #64748b; padding: 8px 16px; border-radius: 12px; font-weight: 800; font-size: 0.75rem; cursor: pointer; transition: 0.3s;
+                &.active { background: #fff; color: #000; } } }
+        .pickers { display: flex; gap: 8px; 
+            .select-container { display: flex; align-items: center; gap: 8px; background: #000; border: 1px solid rgba(255,255,255,0.1); padding: 0 10px; border-radius: 10px; color: #64748b;
+                select { background: #000; border: none; color: #fff; font-weight: 700; outline: none; cursor: pointer; font-size: 0.85rem; padding: 8px 0; } } }
+        .refresh-btn { background: #007BFF; color: white; border: none; width: 38px; height: 38px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;
+            &:hover { background: #0056b3; transform: scale(1.05); } &.spin { animation: spin 1s linear infinite; } } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `;
 
-const MetricsGrid = styled.div` 
-    display: grid; 
-    grid-template-columns: 1fr; /* Strict mobile stack */
-    gap: 1rem; 
-    margin-bottom: 2.5rem; 
-    width: 100%;
-    @media (min-width: 600px) { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+const MetricsRow = styled.div` display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; `;
+
+const MetricCard = styled(motion.div)`
+  background: #0f172a; padding: 2rem; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 1.5rem; position: relative; overflow: hidden;
+  .icon-wrap { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+  .details { label { font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+    h2 { margin: 5px 0; font-size: 1.8rem; font-weight: 900; }
+    .sub { font-size: 0.75rem; color: #475569; font-weight: 700; } }
+  .glow { position: absolute; top: -20px; right: -20px; width: 80px; height: 80px; filter: blur(40px); opacity: 0.15; }
 `;
 
-const StatCard = styled(motion.div)`
-    background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 1.2rem; width: 100%;
-    .icon-box { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .info { flex: 1; min-width: 0; label { display: block; font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;} h3 { font-size: 1.4rem; margin: 4px 0; font-weight: 900; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;} p { font-size: 0.75rem; color: #94a3b8; margin: 0;} }
+const BentoContainer = styled.div`
+    display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem;
+    .grid-item { background: #0f172a; border-radius: 30px; border: 1px solid rgba(255,255,255,0.05); padding: 2.5rem; }
+    .span-8 { grid-column: span 12; @media (min-width: 1024px) { grid-column: span 8; } }
+    .span-4 { grid-column: span 12; @media (min-width: 1024px) { grid-column: span 4; } }
+    .span-12 { grid-column: span 12; }
+    .chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;
+        h3 { font-size: 1.1rem; margin: 0; font-weight: 800; color: #94a3b8; }
+        .legend { display: flex; gap: 15px; .item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; color: #64748b; .dot { width: 8px; height: 8px; border-radius: 50%; &.blue { background: #00B0FF; } &.green { background: #00E676; } } } } }
+    .canvas { height: 350px; width: 100%; }
+    .stack { .row { margin-bottom: 2rem; .labels { display: flex; justify-content: space-between; margin-bottom: 10px; span { font-size: 0.85rem; font-weight: 700; color: #94a3b8; } strong { font-size: 0.85rem; color: #fff; } }
+        .bar-bg { height: 10px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; .bar-fill { height: 100%; border-radius: 10px; } } } }
+    .activity-list { display: grid; grid-template-columns: 1fr; gap: 10px; @media (min-width: 768px) { grid-template-columns: 1fr 1fr; }
+        .log-row { display: flex; align-items: center; gap: 15px; padding: 18px; background: rgba(0,0,0,0.2); border-radius: 20px; cursor: pointer; transition: 0.2s; border: 1px solid transparent;
+            &:hover { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); transform: translateX(5px); }
+            .log-icon { width: 44px; height: 44px; background: rgba(255,255,255,0.03); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+            .log-text { flex: 1; .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; strong { font-size: 0.85rem; color: #fff; } .time { font-size: 0.7rem; color: #475569; } } p { font-size: 0.8rem; color: #64748b; margin: 0; line-height: 1.4; } } } }
 `;
 
-const BentoLayout = styled.div`
-    display: grid; 
-    grid-template-columns: 1fr; /* Strict mobile stack */
-    gap: 1.5rem; 
-    width: 100%;
-
-    @media (min-width: 1024px) { grid-template-columns: repeat(12, 1fr); }
-
-    .grid-item { background: rgba(13,31,45,0.4); border-radius: 30px; border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; width: 100%; @media (min-width: 768px) { padding: 2rem; } }
-    
-    /* Desktop Spans */
-    @media (min-width: 1024px) {
-        .span-8 { grid-column: span 8; } 
-        .span-4 { grid-column: span 4; } 
-        .span-6 { grid-column: span 6; } 
-    }
-
-    h3 { margin: 0 0 1.5rem 0; font-size: 1.1rem; color: #94a3b8; font-weight: 800;}
-    .card-header { display: flex; justify-content: space-between; align-items: center; .legend { display: flex; gap: 12px; font-size: 0.75rem; font-weight: 700; color: #64748b; .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; &.blue { background: #00B0FF; } &.green { background: #00E676; } } } }
-    
-    .canvas { height: 280px; width: 100%; }
-    
-    .gauge-box { position: relative; display: flex; align-items: center; justify-content: center; .gauge-val { position: absolute; text-align: center; h2 { margin: 0; font-size: 2rem; } span { color: #64748b; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; } } }
-    .insight-note { margin-top: 1.5rem; display: flex; align-items: center; gap: 10px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; p { font-size: 0.8rem; color: #94a3b8; margin: 0; line-height: 1.4;} }
-    
-    .performance-list { .perf-row { margin-bottom: 1.2rem; .labels { display: flex; justify-content: space-between; margin-bottom: 6px; span { font-size: 0.85rem; font-weight: 700; color: #e2e8f0; } strong { font-size: 0.85rem; } } .bar-bg { height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; .fill { height: 100%; border-radius: 10px; } } } }
-    
-    .log-list { .log-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 10px; .line { width: 3px; height: 35px; background: #00B0FF; border-radius: 10px; flex-shrink: 0; } .content { flex: 1; strong { font-size: 0.85rem; display: block; margin-bottom: 2px;} p { font-size: 0.75rem; color: #64748b; margin: 0; line-height: 1.4; } } .time { font-size: 0.7rem; color: #475569; white-space: nowrap; } } }
-    
-    .full-btn { width: 100%; padding: 14px; margin-top: 1rem; background: rgba(0, 176, 255, 0.05); border: 1px dashed rgba(0, 176, 255, 0.3); border-radius: 12px; color: #00B0FF; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; &:hover { background: rgba(0, 176, 255, 0.1); } }
-`;
+export default Dashboard;
